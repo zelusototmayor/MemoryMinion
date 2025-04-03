@@ -59,8 +59,18 @@ export class DatabaseStorage implements IStorage {
   
   constructor() {
     // Initialize session store for PostgreSQL
+    // Create a partially compatible pool for the session store
+    const sessionPool = {
+      query: pool.query.bind(pool),
+      on: () => {}, // Create empty on method for compatibility
+      config: { 
+        user: process.env.PGUSER,
+        database: process.env.PGDATABASE
+      },
+    };
+    
     this.sessionStore = new PostgresSessionStore({
-      pool,
+      pool: sessionPool as any,
       createTableIfMissing: true, 
       tableName: 'session'
     });

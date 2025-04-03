@@ -26,24 +26,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserWithoutPassword | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for user in localStorage on mount
+  // Check for authenticated user session on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
+    const fetchUser = async () => {
       try {
-        setUser(JSON.parse(storedUser));
+        setIsLoading(true);
+        const response = await fetch('/api/user', {
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data.user);
+          localStorage.setItem("user", JSON.stringify(data.user));
+        } else {
+          // Clear any stored user if the server says we're not authenticated
+          localStorage.removeItem("user");
+          setUser(null);
+        }
       } catch (error) {
-        console.error("Failed to parse stored user:", error);
-        localStorage.removeItem("user");
+        console.error("Failed to fetch user session:", error);
+        // Try to fall back to localStorage
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          try {
+            setUser(JSON.parse(storedUser));
+          } catch (e) {
+            console.error("Failed to parse stored user:", e);
+            localStorage.removeItem("user");
+          }
+        }
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+
+    fetchUser();
   }, []);
 
   const login = async (email: string, password: string): Promise<UserWithoutPassword> => {
     console.log("Logging in user:", { email });
     try {
-      const response = await apiRequest("POST", "/api/auth/login", {
+      const response = await apiRequest("POST", "/api/login", {
         email,
         password,
       });
@@ -71,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ): Promise<UserWithoutPassword> => {
     console.log("Registering user:", { email, displayName });
     try {
-      const response = await apiRequest("POST", "/api/auth/register", {
+      const response = await apiRequest("POST", "/api/register", {
         email,
         password,
         displayName,
@@ -93,9 +117,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem("user");
-    setUser(null);
+  const logout = async () => {
+    try {
+      await apiRequest("POST", "/api/logout");
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      localStorage.removeItem("user");
+      setUser(null);
+    }
   };
 
   return (

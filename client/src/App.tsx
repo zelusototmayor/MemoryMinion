@@ -10,9 +10,19 @@ import ChatPage from "@/pages/chat";
 import ContactsPage from "@/pages/contacts";
 import ContactDetailPage from "@/pages/contact-detail";
 import { useAuth } from "./hooks/use-auth";
+import { Loader2 } from "lucide-react";
 
 function Router() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+  
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
   
   // If no user is logged in, only show the auth page
   if (!user) {
