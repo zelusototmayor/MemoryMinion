@@ -1,10 +1,11 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
-import { insertUserSchema, insertContactSchema, insertConversationSchema, insertMessageSchema, insertContactLinkSchema } from "@shared/schema";
+import { insertContactSchema, insertConversationSchema, insertMessageSchema, insertContactLinkSchema } from "@shared/schema";
 import { storage } from "./storage";
 import { transcribeAudio, processMessage, detectContacts, generateConversationTitle } from "./openai";
 import multer from "multer";
+import { setupAuth } from "./auth";
 
 // Set up multer for audio upload
 const upload = multer({
@@ -12,74 +13,24 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
 });
 
+// Middleware to check if user is authenticated
+function isAuthenticated(req: Request, res: Response, next: NextFunction) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  return res.status(401).json({ message: "Not authenticated" });
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
-  // Authentication routes
-  app.post("/api/auth/register", zValidator("body", insertUserSchema), async (req: Request, res: Response) => {
-    try {
-      console.log("Register request received:", req.body);
-      const { email, password, displayName } = req.body;
-      
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser) {
-        console.log("User already exists:", email);
-        return res.status(400).json({ message: "User with this email already exists" });
-      }
-      
-      // Create new user
-      console.log("Creating new user:", { email, displayName });
-      const user = await storage.createUser({ email, password, displayName });
-      const { password: _, ...userWithoutPassword } = user;
-      
-      console.log("User created successfully:", userWithoutPassword);
-      return res.status(201).json({ user: userWithoutPassword });
-    } catch (error) {
-      console.error("Error creating user:", error);
-      return res.status(500).json({ message: "Failed to create user: " + (error as Error).message });
-    }
-  });
+  // Set up authentication
+  setupAuth(app);
   
-  app.post("/api/auth/login", async (req: Request, res: Response) => {
+  // Conversation routes - require authentication
+  app.get("/api/conversations", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      console.log("Login request received:", req.body);
-      const { email, password } = req.body;
-      
-      // Find user by email
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        console.log("User not found:", email);
-        return res.status(401).json({ message: "Invalid email or password" });
-      }
-      
-      console.log("User found:", { id: user.id, email: user.email });
-      
-      // Check password (in a real app, use bcrypt or similar)
-      if (user.password !== password) {
-        console.log("Password mismatch for user:", email);
-        return res.status(401).json({ message: "Invalid email or password" });
-      }
-      
-      const { password: _, ...userWithoutPassword } = user;
-      
-      console.log("Login successful:", userWithoutPassword);
-      return res.json({ user: userWithoutPassword });
-    } catch (error) {
-      console.error("Error logging in:", error);
-      return res.status(500).json({ message: "Login failed: " + (error as Error).message });
-    }
-  });
-  
-  // Conversation routes
-  app.get("/api/conversations", async (req: Request, res: Response) => {
-    try {
-      const userId = parseInt(req.query.userId as string, 10);
-      
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
-      }
-      
+      const userId = (req.user as Express.User).id;
       const conversations = await storage.getConversationsForUser(userId);
       return res.json({ conversations });
     } catch (error) {
@@ -88,9 +39,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/conversations", zValidator("body", insertConversationSchema), async (req: Request, res: Response) => {
+  app.post("/api/conversations", isAuthenticated, zValidator("body", insertConversationSchema), async (req: Request, res: Response) => {
     try {
-      const conversation = await storage.createConversation(req.body);
+      // Make sure user_id matches the authenticated user
+      const userId = (req.user as Express.User).id;
+      const conversation = await storage.createConversation({
+        ...req.body,
+        user_id: userId
+      });
       return res.status(201).json({ conversation });
     } catch (error) {
       console.error("Error creating conversation:", error);
@@ -98,7 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/conversations/:id", async (req: Request, res: Response) => {
+  app.get("/api/conversations/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
       
@@ -112,6 +68,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Conversation not found" });
       }
       
+      // Check if conversation belongs to the authenticated user
+      const userId = (req.user as Express.User).id;
+      if (conversation.user_id !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
       const messages = await storage.getMessagesForConversation(id);
       
       return res.json({ conversation, messages });
@@ -122,9 +84,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Message routes
-  app.post("/api/messages", zValidator("body", insertMessageSchema), async (req: Request, res: Response) => {
+  app.post("/api/messages", isAuthenticated, zValidator("body", insertMessageSchema), async (req: Request, res: Response) => {
     try {
       const { conversation_id, sender, content } = req.body;
+      
+      // Verify that the conversation belongs to the authenticated user
+      const conversation = await storage.getConversationById(conversation_id);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      const userId = (req.user as Express.User).id;
+      if (conversation.user_id !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
       
       // Create message
       const message = await storage.createMessage({ conversation_id, sender, content });
@@ -169,7 +142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Audio transcription route
-  app.post("/api/transcribe", upload.single("audio"), async (req: Request, res: Response) => {
+  app.post("/api/transcribe", isAuthenticated, upload.single("audio"), async (req: Request, res: Response) => {
     try {
       if (!req.file || !req.file.buffer) {
         return res.status(400).json({ message: "No audio file provided" });
@@ -184,14 +157,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Contact routes
-  app.get("/api/contacts", async (req: Request, res: Response) => {
+  app.get("/api/contacts", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = parseInt(req.query.userId as string, 10);
-      
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
-      }
-      
+      const userId = (req.user as Express.User).id;
       const contacts = await storage.getContactsWithMentionCount(userId);
       return res.json({ contacts });
     } catch (error) {
@@ -200,9 +168,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/contacts", zValidator("body", insertContactSchema), async (req: Request, res: Response) => {
+  app.post("/api/contacts", isAuthenticated, zValidator("body", insertContactSchema), async (req: Request, res: Response) => {
     try {
-      const contact = await storage.createContact(req.body);
+      // Make sure user_id matches the authenticated user
+      const userId = (req.user as Express.User).id;
+      const contact = await storage.createContact({
+        ...req.body,
+        user_id: userId
+      });
       return res.status(201).json({ contact });
     } catch (error) {
       console.error("Error creating contact:", error);
@@ -210,7 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/contacts/:id", async (req: Request, res: Response) => {
+  app.get("/api/contacts/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
       
@@ -224,6 +197,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Contact not found" });
       }
       
+      // Check if contact belongs to the authenticated user
+      const userId = (req.user as Express.User).id;
+      if (contact.user_id !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
       const contactLinks = await storage.getContactLinksForContact(id);
       
       // Get messages associated with this contact
@@ -231,12 +210,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const messages = [];
       
       for (const messageId of messageIds) {
-        const message = Array.from((await storage.getMessagesForConversation(0)).filter(
-          message => message.id === messageId
-        ));
+        // For each message ID, find messages in all conversations
+        // This approach might need optimization in a production app
+        const conversations = await storage.getConversationsForUser(userId);
         
-        if (message.length > 0) {
-          messages.push(message[0]);
+        for (const conversation of conversations) {
+          const conversationMessages = await storage.getMessagesForConversation(conversation.id);
+          const matchingMessage = conversationMessages.find(msg => msg.id === messageId);
+          
+          if (matchingMessage) {
+            messages.push(matchingMessage);
+            break;
+          }
         }
       }
       
@@ -247,14 +232,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/contacts/frequent", async (req: Request, res: Response) => {
+  app.get("/api/contacts/frequent", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = parseInt(req.query.userId as string, 10);
+      const userId = (req.user as Express.User).id;
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 4;
-      
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
-      }
       
       const contacts = await storage.getFrequentContactsForUser(userId, limit);
       return res.json({ contacts });
@@ -265,9 +246,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Contact link routes
-  app.post("/api/contact-links", zValidator("body", insertContactLinkSchema), async (req: Request, res: Response) => {
+  app.post("/api/contact-links", isAuthenticated, zValidator("body", insertContactLinkSchema), async (req: Request, res: Response) => {
     try {
       const contactLink = await storage.createContactLink(req.body);
+      
+      // Verify that both the contact and message belong to the user
+      const contact = await storage.getContactById(req.body.contact_id);
+      if (!contact) {
+        return res.status(404).json({ message: "Contact not found" });
+      }
+      
+      const userId = (req.user as Express.User).id;
+      if (contact.user_id !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
       return res.status(201).json({ contactLink });
     } catch (error) {
       console.error("Error creating contact link:", error);
@@ -276,12 +269,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Search routes
-  app.get("/api/search", async (req: Request, res: Response) => {
+  app.get("/api/search", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const userId = parseInt(req.query.userId as string, 10);
+      const userId = (req.user as Express.User).id;
       const query = req.query.q as string;
       
-      if (isNaN(userId) || !query) {
+      if (!query) {
         return res.status(400).json({ message: "Invalid search parameters" });
       }
       
@@ -296,7 +289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Generate conversation title
-  app.post("/api/generate-title", async (req: Request, res: Response) => {
+  app.post("/api/generate-title", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const { messages } = req.body;
       
