@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const fetchUser = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/user', {
+        const response = await fetch('/api/auth/user', {
           credentials: 'include',
         });
         
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<UserWithoutPassword> => {
     console.log("Logging in user:", { email });
     try {
-      const response = await apiRequest("POST", "/api/login", {
+      const response = await apiRequest("POST", "/api/auth/login", {
         email,
         password,
       });
@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ): Promise<UserWithoutPassword> => {
     console.log("Registering user:", { email, displayName });
     try {
-      const response = await apiRequest("POST", "/api/register", {
+      const response = await apiRequest("POST", "/api/auth/register", {
         email,
         password,
         displayName,
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await apiRequest("POST", "/api/logout");
+      await apiRequest("POST", "/api/auth/logout");
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
