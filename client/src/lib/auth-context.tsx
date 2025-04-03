@@ -41,20 +41,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string): Promise<UserWithoutPassword> => {
-    const response = await apiRequest("POST", "/api/auth/login", {
-      email,
-      password,
-    });
-    
-    const data = await response.json();
-    
-    if (!data.user) {
-      throw new Error("Login failed");
+    console.log("Logging in user:", { email });
+    try {
+      const response = await apiRequest("POST", "/api/auth/login", {
+        email,
+        password,
+      });
+      
+      const data = await response.json();
+      console.log("Login response:", data);
+      
+      if (!data.user) {
+        throw new Error(data.message || "Login failed");
+      }
+      
+      localStorage.setItem("user", JSON.stringify(data.user));
+      setUser(data.user);
+      return data.user;
+    } catch (error) {
+      console.error("Login error:", error);
+      throw error;
     }
-    
-    localStorage.setItem("user", JSON.stringify(data.user));
-    setUser(data.user);
-    return data.user;
   };
 
   const register = async (
@@ -62,21 +69,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     displayName: string,
   ): Promise<UserWithoutPassword> => {
-    const response = await apiRequest("POST", "/api/auth/register", {
-      email,
-      password,
-      displayName,
-    });
-    
-    const data = await response.json();
-    
-    if (!data.user) {
-      throw new Error("Registration failed");
+    console.log("Registering user:", { email, displayName });
+    try {
+      const response = await apiRequest("POST", "/api/auth/register", {
+        email,
+        password,
+        displayName,
+      });
+      
+      const data = await response.json();
+      console.log("Registration response:", data);
+      
+      if (!data.user) {
+        throw new Error(data.message || "Registration failed");
+      }
+      
+      localStorage.setItem("user", JSON.stringify(data.user));
+      setUser(data.user);
+      return data.user;
+    } catch (error) {
+      console.error("Registration error:", error);
+      throw error;
     }
-    
-    localStorage.setItem("user", JSON.stringify(data.user));
-    setUser(data.user);
-    return data.user;
   };
 
   const logout = () => {

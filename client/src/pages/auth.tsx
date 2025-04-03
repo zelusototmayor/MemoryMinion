@@ -46,8 +46,15 @@ export default function AuthPage() {
 
   const onLoginSubmit = async (values: LoginFormValues) => {
     try {
+      console.log("Login form submitted:", values);
       await login(values.email, values.password);
+      toast({
+        title: "Login Successful",
+        description: "You have been logged in successfully.",
+        variant: "default",
+      });
     } catch (error) {
+      console.error("Login error in form handler:", error);
       toast({
         title: "Login Failed",
         description: (error as Error).message,
@@ -58,8 +65,15 @@ export default function AuthPage() {
 
   const onRegisterSubmit = async (values: RegisterFormValues) => {
     try {
+      console.log("Form submitted:", values);
       await register(values.email, values.password, values.displayName);
+      toast({
+        title: "Registration Successful",
+        description: "Your account has been created successfully.",
+        variant: "default",
+      });
     } catch (error) {
+      console.error("Registration error in form handler:", error);
       toast({
         title: "Registration Failed",
         description: (error as Error).message,

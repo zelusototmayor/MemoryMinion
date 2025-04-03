@@ -1,11 +1,10 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import { insertUserSchema, insertContactSchema, insertConversationSchema, insertMessageSchema, insertContactLinkSchema } from "@shared/schema";
 import { storage } from "./storage";
 import { transcribeAudio, processMessage, detectContacts, generateConversationTitle } from "./openai";
 import multer from "multer";
-import { zValidator } from "./middleware";
 
 // Set up multer for audio upload
 const upload = multer({
@@ -19,46 +18,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
   app.post("/api/auth/register", zValidator("body", insertUserSchema), async (req: Request, res: Response) => {
     try {
+      console.log("Register request received:", req.body);
       const { email, password, displayName } = req.body;
       
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
       if (existingUser) {
+        console.log("User already exists:", email);
         return res.status(400).json({ message: "User with this email already exists" });
       }
       
       // Create new user
+      console.log("Creating new user:", { email, displayName });
       const user = await storage.createUser({ email, password, displayName });
       const { password: _, ...userWithoutPassword } = user;
       
+      console.log("User created successfully:", userWithoutPassword);
       return res.status(201).json({ user: userWithoutPassword });
     } catch (error) {
       console.error("Error creating user:", error);
-      return res.status(500).json({ message: "Failed to create user" });
+      return res.status(500).json({ message: "Failed to create user: " + (error as Error).message });
     }
   });
   
   app.post("/api/auth/login", async (req: Request, res: Response) => {
     try {
+      console.log("Login request received:", req.body);
       const { email, password } = req.body;
       
       // Find user by email
       const user = await storage.getUserByEmail(email);
       if (!user) {
+        console.log("User not found:", email);
         return res.status(401).json({ message: "Invalid email or password" });
       }
       
+      console.log("User found:", { id: user.id, email: user.email });
+      
       // Check password (in a real app, use bcrypt or similar)
       if (user.password !== password) {
+        console.log("Password mismatch for user:", email);
         return res.status(401).json({ message: "Invalid email or password" });
       }
       
       const { password: _, ...userWithoutPassword } = user;
       
+      console.log("Login successful:", userWithoutPassword);
       return res.json({ user: userWithoutPassword });
     } catch (error) {
       console.error("Error logging in:", error);
-      return res.status(500).json({ message: "Login failed" });
+      return res.status(500).json({ message: "Login failed: " + (error as Error).message });
     }
   });
   
@@ -127,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Get conversation history
         const messages = await storage.getMessagesForConversation(conversation_id);
         const history = messages.map(m => ({
-          role: m.sender === "user" ? "user" : "assistant",
+          role: m.sender === "user" ? "user" as const : "assistant" as const,
           content: m.content
         }));
         

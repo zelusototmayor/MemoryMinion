@@ -6,8 +6,16 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "test-key" });
 // Transcribe audio to text using Whisper API
 export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
   try {
+    const fileObj = {
+      buffer: audioBuffer,
+      name: "audio.webm",
+      size: audioBuffer.length,
+      type: 'audio/webm',
+      lastModified: Date.now()
+    };
+    
     const transcription = await openai.audio.transcriptions.create({
-      file: new Blob([audioBuffer], { type: 'audio/webm' }),
+      file: fileObj as any,
       model: "whisper-1",
     });
 
@@ -26,16 +34,16 @@ export async function processMessage(
   try {
     const messages = [
       {
-        role: "system",
+        role: "system" as const,
         content: "You are RevocAI, a helpful conversation assistant. Provide concise, informative responses.",
       },
       ...conversationHistory,
-      { role: "user", content },
+      { role: "user" as const, content },
     ];
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
-      messages: messages as any,
+      messages,
     });
 
     return response.choices[0].message.content || "I'm sorry, I couldn't process that.";
