@@ -1,0 +1,226 @@
+RevocAI — Canvas Project Specification
+1. Project Name & Description
+Project Name: RevocAI
+Short Description: A mobile-first AI assistant that records, transcribes, and retrieves conversations in both text and voice form. It also maintains a contacts system that links users, messages, and relevant contacts — enabling quick retrieval of who said what and when.
+
+2. Value Proposition
+Convenience: A chat interface (text or voice) to capture daily interactions, ideas, and meeting notes.
+
+Enhanced Recall: Automated contact linking ensures you can quickly recall details about specific individuals.
+
+AI-Powered Summaries: Generate concise overviews of conversations or topics on demand.
+
+Scalable: Built with future expansions in mind (team collaboration, reminders, external integrations).
+
+3. Key Functional Blocks
+Chat Interface
+
+Text Input: Write prompts or questions directly.
+
+Voice Recording: Convert audio to text (via OpenAI Whisper), confirm/edit, then submit.
+
+AI Responses: Uses OpenAI’s Chat model to provide answers, summaries, or clarifications.
+
+Conversation History
+
+List and search past conversations by date, keywords, or related contacts.
+
+Each conversation is stored in a dedicated record for easy retrieval.
+
+Contacts Management
+
+Auto-Detect Mentions: Whenever a user or AI message includes a name, prompt to create or link to an existing contact.
+
+Merge Contacts: If a name is recognized as similar to an existing contact, prompt to merge.
+
+Contacts → Messages Linking: Each contact is associated with the messages in which they were mentioned. This allows user queries like “What did I say about John last week?” to immediately reference the correct context.
+
+AI Summaries & Retrieval
+
+Summaries of individual or multiple conversations.
+
+Natural language queries that find relevant conversations or highlight interactions with specific contacts.
+
+Extensibility (Future)
+
+Reminders & notifications.
+
+Multi-user support (shared data in teams).
+
+Calendar/email integrations.
+
+4. User Flows
+Flow A: Record or Type a Message
+User Initiates: Either types a message or records voice.
+
+Transcription (for voice): OpenAI Whisper returns text; user confirms or edits.
+
+Message Stored: Saved in the database under the active conversation.
+
+AI Processing: OpenAI Chat receives the user message (plus relevant context).
+
+AI Response: Returned to the user and stored as a separate “assistant” message.
+
+Flow B: Contact Creation & Linking
+Name Detection: AI or the system detects a potential contact name in the user’s message.
+
+Check Contacts: If name is not found or is similar to an existing contact, the user chooses:
+
+Create New contact, or
+
+Merge with an existing contact.
+
+Store Link: A record is created associating the message with the contact. Over time, each contact accumulates a history of relevant messages.
+
+Flow C: Information Retrieval
+User Queries: “What did I say about Alice last week?”
+
+Lookup: System filters messages linked to “Alice,” plus relevant conversation context.
+
+AI Summarizes: OpenAI Chat composes a concise response referencing those messages.
+
+Display: User receives a single, consolidated answer.
+
+5. Technical Architecture
+pgsql
+Copy
+Edit
+User Device (Mobile / Web) --> 
+   [Frontend (No-Code Environment)] --> 
+      [Supabase (Auth + DB)] --> 
+         [OpenAI (Chat + Whisper)]
+Tech Stack & Responsibilities
+Frontend (No-Code Environment)
+
+Interface & Flows: Chat UI, voice recording, contact management, conversation history.
+
+API Calls:
+
+Send text/voice to back end or serverless functions.
+
+Display AI results in real time.
+
+Supabase
+
+Authentication: Secure user sign-up, login, and session management.
+
+Database: Persists conversations, messages, contact records, and relationships.
+
+Security: Row-level security policies ensure user data privacy.
+
+OpenAI
+
+Whisper API: Transcribes voice recordings into text.
+
+Chat API: Handles user queries, conversation context, summarization, and retrieval tasks.
+
+6. Data Model
+Below is a minimal database schema for Supabase, ensuring messages are explicitly linked to contacts wherever they’re mentioned.
+
+Table: users
+Column	Type (PK?)	Description
+id	UUID (PK)	Primary key (user ID)
+email	TEXT	Unique user email
+phone	TEXT	Optional phone number
+displayName	TEXT	User’s display name
+created_at	TIMESTAMP	Time record created
+Table: contacts
+Column	Type (PK?)	Description
+id	UUID (PK)	Primary key (contact ID)
+user_id	UUID	References users.id
+name	TEXT	Contact’s name
+notes	TEXT	Extra details (manual or AI-generated)
+created_at	TIMESTAMP	Time record created
+Table: conversations
+Column	Type (PK?)	Description
+id	UUID (PK)	Primary key (conversation ID)
+user_id	UUID	References users.id
+title	TEXT	AI-generated or user-defined conversation name
+created_at	TIMESTAMP	Time record created
+Table: messages
+Column	Type (PK?)	Description
+id	UUID (PK)	Primary key (message ID)
+conversation_id	UUID	References conversations.id
+sender	TEXT	e.g. “user” or “assistant”
+content	TEXT	The actual message text
+created_at	TIMESTAMP	Time record created
+Table: contact_links
+Column	Type (PK?)	Description
+id	UUID (PK)	Primary key (contact-link ID)
+contact_id	UUID	References contacts.id
+message_id	UUID	References messages.id
+relationship	TEXT	e.g. “mentioned in,” “discussed,” “introduced,” etc.
+created_at	TIMESTAMP	Time record created
+Key Point:
+
+contact_links ensures every message that mentions a contact is tied to that contact. By using this join table, you can retrieve all relevant messages for any given contact or pull up the related contacts for a specific message.
+
+7. Implementation Steps
+Authentication Setup
+
+Enable Supabase Auth.
+
+Ensure sign-up and login flows are integrated.
+
+Chat Interface
+
+Provide text field and voice button.
+
+For voice: upload or stream audio to an endpoint that calls OpenAI Whisper → return text → confirm → then store & send to Chat API.
+
+Storing Conversations
+
+Create a new conversation if the user opens a fresh session.
+
+Insert each user message and AI response into messages, referencing the conversation ID.
+
+Contact Detection
+
+On each user or assistant message, parse text for names.
+
+If a new name is found:
+
+Prompt: “Is this a new contact or merge with an existing one?”
+
+If new, insert into contacts.
+
+Create a row in contact_links referencing the new contact + current message.
+
+Retrieving Data
+
+Conversation History: Query conversations & messages by user ID.
+
+Contact-Related: If user asks about a contact, fetch contact_links → gather linked messages → feed relevant text to OpenAI for summarization.
+
+AI Integration
+
+Use environment variables to store OpenAI API keys.
+
+For text queries, call OpenAI Chat with conversation context.
+
+For voice transcription, call OpenAI Whisper.
+
+Testing
+
+Functional: Validate voice-to-text accuracy, conversation flow, contact linking.
+
+Performance: Check query speed, AI response time.
+
+UX: Ensure labeling or merging contacts is intuitive.
+
+Deployment
+
+Deploy the front end (no-code environment).
+
+Host the database & authentication on Supabase.
+
+Keep all secrets (OpenAI API keys) securely stored in environment variables.
+
+8. Maintenance & Future Enhancements
+Reminders & Scheduling: Could integrate with external calendar APIs.
+
+Team Access: Implement multi-user collaboration.
+
+Notifications: Offer push/email reminders for important contacts or follow-ups.
+
+Analytics: Provide usage stats or summary insights.
