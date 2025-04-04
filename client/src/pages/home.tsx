@@ -1,25 +1,20 @@
 import { useLocation } from "wouter";
-import { useEffect } from "react";
-import { useAuthQuery } from "@/hooks/use-auth-query";
 import { BottomNav } from "@/components/navigation/bottom-nav";
 import ConversationsPage from "./conversations";
 import ContactsPage from "./contacts";
 import { useState } from "react";
 import Header from "@/components/header";
 
+// Create a mock user for development
+const mockUser = {
+  id: 1,
+  email: "user@example.com",
+  displayName: "Test User",
+  created_at: new Date()
+};
+
 export default function HomePage() {
-  const { user } = useAuthQuery();
-  const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<"conversations" | "contacts">("conversations");
-  
-  // Redirect to login if no user
-  useEffect(() => {
-    if (!user) {
-      navigate("/");
-    }
-  }, [user, navigate]);
-  
-  if (!user) return null;
   
   return (
     <div className="h-screen flex flex-col">

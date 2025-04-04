@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useMockAuth } from "@/hooks/use-mock-auth";
 
 export default function Header() {
-  const { user, logout } = useAuth();
+  const { user, logout } = useMockAuth();
   const [showSearchBar, setShowSearchBar] = useState(false);
   
   const toggleSearchBar = () => {
@@ -36,7 +36,7 @@ export default function Header() {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center">
                   <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-medium">
-                    {user ? getInitials(user.displayName) : 'U'}
+                    {getInitials(user.displayName)}
                   </div>
                 </button>
               </DropdownMenuTrigger>
