@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { useEffect } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuthQuery } from "@/hooks/use-auth-query";
 import { BottomNav } from "@/components/navigation/bottom-nav";
 import ConversationsPage from "./conversations";
 import ContactsPage from "./contacts";
@@ -8,7 +8,7 @@ import { useState } from "react";
 import Header from "@/components/header";
 
 export default function HomePage() {
-  const { user } = useAuth();
+  const { user } = useAuthQuery();
   const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<"conversations" | "contacts">("conversations");
   

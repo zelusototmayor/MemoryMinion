@@ -1,6 +1,4 @@
 import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth";
@@ -9,11 +7,11 @@ import ConversationsPage from "@/pages/conversations";
 import ChatPage from "@/pages/chat";
 import ContactsPage from "@/pages/contacts";
 import ContactDetailPage from "@/pages/contact-detail";
-import { useAuth } from "./hooks/use-auth";
+import { useAuthQuery, AuthProvider } from "./hooks/use-auth-query";
 import { Loader2 } from "lucide-react";
 
 function Router() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading } = useAuthQuery();
   
   // Show loading spinner while checking authentication
   if (isLoading) {
@@ -48,10 +46,10 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <AuthProvider>
       <Router />
       <Toaster />
-    </QueryClientProvider>
+    </AuthProvider>
   );
 }
 

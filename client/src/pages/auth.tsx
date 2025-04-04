@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuthQuery } from "@/hooks/use-auth-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +24,14 @@ type RegisterFormValues = z.infer<typeof registerFormSchema>;
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
-  const { login, register } = useAuth();
+  const { loginMutation, registerMutation, user } = useAuthQuery();
   const { toast } = useToast();
+  
+  // Redirect if already logged in
+  if (user) {
+    window.location.href = "/";
+    return null;
+  }
 
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
@@ -47,7 +53,10 @@ export default function AuthPage() {
   const onLoginSubmit = async (values: LoginFormValues) => {
     try {
       console.log("Login form submitted:", values);
-      await login(values.email, values.password);
+      await loginMutation.mutateAsync({
+        email: values.email,
+        password: values.password
+      });
       toast({
         title: "Login Successful",
         description: "You have been logged in successfully.",
@@ -66,7 +75,11 @@ export default function AuthPage() {
   const onRegisterSubmit = async (values: RegisterFormValues) => {
     try {
       console.log("Form submitted:", values);
-      await register(values.email, values.password, values.displayName);
+      await registerMutation.mutateAsync({
+        email: values.email,
+        password: values.password,
+        displayName: values.displayName
+      });
       toast({
         title: "Registration Successful",
         description: "Your account has been created successfully.",
