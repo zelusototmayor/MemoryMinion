@@ -305,6 +305,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create a catch-all API route handler for unmatched API routes
+  app.all('/api/*', (req: Request, res: Response) => {
+    res.status(404).json({ message: `API endpoint not found: ${req.path}` });
+  });
+
   return httpServer;
 }
 
