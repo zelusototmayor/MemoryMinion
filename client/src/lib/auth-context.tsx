@@ -46,17 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error("Failed to fetch user session:", error);
-        // Try to fall back to localStorage
-        const storedUser = localStorage.getItem("user");
-        if (storedUser) {
-          try {
-            setUser(JSON.parse(storedUser));
-          } catch (e) {
-            console.error("Failed to parse stored user:", e);
-            localStorage.removeItem("user");
-          }
-        }
+        // For any error, assume user is not authenticated
+        localStorage.removeItem("user");
+        setUser(null);
       } finally {
+        // Always set loading to false, even on errors
         setIsLoading(false);
       }
     };
