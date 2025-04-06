@@ -4,14 +4,7 @@ import ConversationsPage from "./conversations";
 import ContactsPage from "./contacts";
 import { useState } from "react";
 import Header from "@/components/header";
-
-// Create a mock user for development
-const mockUser = {
-  id: 1,
-  email: "user@example.com",
-  displayName: "Test User",
-  created_at: new Date()
-};
+import { VoiceRecorder } from "@/components/voice-recorder";
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"conversations" | "contacts">("conversations");
@@ -48,6 +41,9 @@ export default function HomePage() {
       
       {/* Content Area */}
       {activeTab === "conversations" ? <ConversationsPage /> : <ContactsPage />}
+      
+      {/* Voice Recorder */}
+      <VoiceRecorder />
       
       {/* Bottom Navigation */}
       <BottomNav activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab as "conversations" | "contacts")} />
