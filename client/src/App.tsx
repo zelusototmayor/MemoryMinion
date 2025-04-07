@@ -6,6 +6,7 @@ import ConversationsPage from "@/pages/conversations";
 import ChatPage from "@/pages/chat";
 import ContactsPage from "@/pages/contacts";
 import ContactDetailPage from "@/pages/contact-detail";
+import TimelinePage from "@/pages/timeline";
 
 function Router() {
   // Skip authentication check for now
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/conversation/:id" component={ChatPage} />
       <Route path="/contacts" component={ContactsPage} />
       <Route path="/contact/:id" component={ContactDetailPage} />
+      <Route path="/timeline" component={TimelinePage} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -8,6 +8,19 @@ type BottomNavProps = {
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   const [, navigate] = useLocation();
   
+  const handleTabChange = (tab: string) => {
+    onTabChange(tab);
+    
+    // For special tabs that should navigate to separate pages
+    if (tab === "timeline") {
+      navigate("/timeline");
+    } else if (tab === "conversations") {
+      navigate("/");
+    } else if (tab === "contacts") {
+      navigate("/");
+    }
+  };
+  
   const handleNewConversation = async () => {
     const response = await fetch("/api/conversations", {
       method: "POST",
@@ -31,7 +44,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
           className={`flex flex-col items-center justify-center py-2 px-4 flex-1 ${
             activeTab === "conversations" ? "text-primary" : "text-gray-500 dark:text-gray-400"
           }`}
-          onClick={() => onTabChange("conversations")}
+          onClick={() => handleTabChange("conversations")}
         >
           <span className="material-icons">chat</span>
           <span className="text-xs mt-1">Chats</span>
@@ -41,7 +54,7 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
           className={`flex flex-col items-center justify-center py-2 px-4 flex-1 ${
             activeTab === "contacts" ? "text-primary" : "text-gray-500 dark:text-gray-400"
           }`}
-          onClick={() => onTabChange("contacts")}
+          onClick={() => handleTabChange("contacts")}
         >
           <span className="material-icons">people</span>
           <span className="text-xs mt-1">Contacts</span>
@@ -57,11 +70,13 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
         </div>
         
         <button
-          className="flex flex-col items-center justify-center py-2 px-4 flex-1 text-gray-500 dark:text-gray-400"
-          onClick={() => {}}
+          className={`flex flex-col items-center justify-center py-2 px-4 flex-1 ${
+            activeTab === "timeline" ? "text-primary" : "text-gray-500 dark:text-gray-400"
+          }`}
+          onClick={() => handleTabChange("timeline")}
         >
-          <span className="material-icons">search</span>
-          <span className="text-xs mt-1">Search</span>
+          <span className="material-icons">timeline</span>
+          <span className="text-xs mt-1">Timeline</span>
         </button>
         
         <button
