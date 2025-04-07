@@ -1,16 +1,30 @@
 import { Message, MessageWithContactLinks, ContactLinkWithName } from "@shared/schema";
 import { format } from "date-fns";
 import { useLocation } from "wouter";
+import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 
 type MessageBubbleProps = {
   message: Message | MessageWithContactLinks;
   isUser: boolean;
+  isStreaming?: boolean;
+  streamingText?: string;
 };
 
-export function MessageBubble({ message, isUser }: MessageBubbleProps) {
+export function MessageBubble({ message, isUser, isStreaming = false, streamingText = "" }: MessageBubbleProps) {
   const createdDate = message.created_at ? new Date(message.created_at) : new Date();
   const time = format(createdDate, "h:mm a");
   const [, navigate] = useLocation();
+  const [displayedText, setDisplayedText] = useState<string>(message.content);
+  
+  // Update the displayed text when streaming
+  useEffect(() => {
+    if (isStreaming && streamingText) {
+      setDisplayedText(streamingText);
+    } else {
+      setDisplayedText(message.content);
+    }
+  }, [isStreaming, streamingText, message.content]);
   
   // Check if message has contact links
   const hasContactLinks = 'contactLinks' in message && message.contactLinks && message.contactLinks.length > 0;
@@ -18,12 +32,20 @@ export function MessageBubble({ message, isUser }: MessageBubbleProps) {
   // Function to highlight contact names in message content
   const renderMessageContentWithHighlightedContacts = () => {
     if (!hasContactLinks) {
-      return <p className="text-sm">{message.content}</p>;
+      return (
+        <motion.p 
+          className="text-sm"
+          initial={isStreaming ? { opacity: 1 } : {}}
+          animate={isStreaming ? { opacity: 1 } : {}}
+        >
+          {isStreaming ? streamingText : message.content}
+        </motion.p>
+      );
     }
     
     // Ensure TypeScript recognizes we're working with MessageWithContactLinks
     const messageWithContacts = message as MessageWithContactLinks;
-    let content = messageWithContacts.content;
+    let content = isStreaming ? streamingText : messageWithContacts.content;
     
     // Sort contact links by name length (longest first) to prevent shorter names from 
     // matching inside longer names
@@ -101,10 +123,22 @@ export function MessageBubble({ message, isUser }: MessageBubbleProps) {
   
   return (
     <div className="flex flex-col space-y-1 max-w-[85%]">
-      <div className="message-bubble-ai bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-tl-lg rounded-tr-lg rounded-br-lg shadow-sm">
-        {renderMessageContentWithHighlightedContacts()}
-      </div>
-      <div className="flex items-center space-x-1">
+      <motion.div 
+        className="message-bubble-ai bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-tl-lg rounded-tr-lg rounded-br-lg shadow-sm"
+        initial={{ opacity: 0.8, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div className="flex items-start space-x-2">
+          <div className="flex-shrink-0 w-6 h-6 bg-primary rounded-full flex items-center justify-center text-white text-xs">
+            AI
+          </div>
+          <div className="flex-1">
+            {renderMessageContentWithHighlightedContacts()}
+          </div>
+        </div>
+      </motion.div>
+      <div className="flex items-center space-x-1 pl-8">
         <span className="text-xs text-gray-500 dark:text-gray-400">{time}</span>
         {hasContactLinks && (
           <span className="text-xs text-primary dark:text-primary-400">

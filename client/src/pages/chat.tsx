@@ -12,7 +12,9 @@ import { ContactPrompt } from "@/components/ui/contact-prompt";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { TranscriptionProcessing } from "@/components/transcription-processing";
 import { TranscriptionConfirmation } from "@/components/transcription-confirmation";
+import { TypingIndicator } from "@/components/ui/typing-indicator";
 import { formatRelative } from "date-fns";
+import { motion, AnimatePresence } from "framer-motion";
 import { Conversation, Message, MessageWithContactLinks, PotentialContact } from "@shared/schema";
 
 export default function ChatPage() {
@@ -155,6 +157,37 @@ export default function ChatPage() {
     navigate("/");
   };
   
+  // Streaming response state
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingText, setStreamingText] = useState("");
+  const [streamingMessageId, setStreamingMessageId] = useState<number | null>(null);
+  
+  // Simulate streaming text effect for AI responses
+  const simulateStreamingResponse = (fullText: string, messageId: number) => {
+    setIsStreaming(true);
+    setStreamingMessageId(messageId);
+    
+    let currentIndex = 0;
+    const textLength = fullText.length;
+    const chunkSize = Math.max(1, Math.floor(textLength / 30)); // Adjust for speed
+    
+    setStreamingText("");
+    
+    const streamInterval = setInterval(() => {
+      if (currentIndex < textLength) {
+        const nextIndex = Math.min(currentIndex + chunkSize, textLength);
+        setStreamingText(fullText.substring(0, nextIndex));
+        currentIndex = nextIndex;
+      } else {
+        clearInterval(streamInterval);
+        setIsStreaming(false);
+        setStreamingMessageId(null);
+      }
+    }, 25); // Adjust timing for realistic feel
+    
+    return () => clearInterval(streamInterval);
+  };
+  
   // Handle sending message
   const handleSendMessage = async () => {
     if (!message.trim() && !transcribedText) return;
@@ -166,7 +199,12 @@ export default function ChatPage() {
         setTranscriptionStatus("sending");
       }
       
-      await sendMessageMutation.mutateAsync(contentToSend);
+      const result = await sendMessageMutation.mutateAsync(contentToSend);
+      
+      // Simulate streaming for AI response
+      if (result?.aiResponse) {
+        simulateStreamingResponse(result.aiResponse.content, result.aiResponse.id);
+      }
       
       if (transcriptionStatus === "sending") {
         setTranscriptionStatus("idle");
@@ -296,6 +334,8 @@ export default function ChatPage() {
                   key={message.id}
                   message={message}
                   isUser={message.sender === "user"}
+                  isStreaming={isStreaming && streamingMessageId === message.id}
+                  streamingText={streamingText}
                 />
               ))}
             </div>
@@ -341,50 +381,80 @@ export default function ChatPage() {
           />
         )}
         
+        {/* Show typing indicator when message is being processed but streaming hasn't started yet */}
+        {sendMessageMutation.isPending && !isStreaming && (
+          <div className="flex justify-start mb-4">
+            <TypingIndicator />
+          </div>
+        )}
+        
         <div ref={messagesEndRef} />
       </div>
 
       {/* Chat input */}
       <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3">
-        <div className="flex items-center space-x-2">
-          <div className="flex-1 relative">
-            <Input
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type a message..."
-              className="pl-4 pr-10 py-2.5 bg-gray-100 dark:bg-gray-700 rounded-full"
-              disabled={transcriptionStatus !== "idle" || isRecording}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
+        <div className="max-w-4xl mx-auto">
+          <motion.div 
+            className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg px-4 py-2 shadow-sm"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <div className="flex-1 relative">
+              <Input
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Message RevocAI..."
+                className="pl-2 pr-10 py-3 border-none bg-transparent focus:ring-0 shadow-none"
+                disabled={transcriptionStatus !== "idle" || isRecording || sendMessageMutation.isPending}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+              />
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              {/* Voice recorder button */}
+              {message === "" && transcriptionStatus === "idle" && !isRecording && !sendMessageMutation.isPending ? (
+                <VoiceRecorder
+                  isRecording={isRecording}
+                  recordingTime={recordingTime}
+                  onStartRecording={startRecording}
+                  onStopRecording={stopRecording}
+                />
+              ) : null}
+              
+              {/* Send button */}
+              <Button
+                size="icon"
+                variant={message.trim() || transcriptionStatus === "confirm" ? "default" : "ghost"}
+                className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                  message.trim() || transcriptionStatus === "confirm" 
+                    ? "bg-primary text-white" 
+                    : "text-gray-400"
+                }`}
+                onClick={handleSendMessage}
+                disabled={
+                  (message.trim() === "" && transcriptionStatus !== "confirm") ||
+                  sendMessageMutation.isPending
                 }
-              }}
-            />
-          </div>
+              >
+                {sendMessageMutation.isPending ? (
+                  <span className="animate-spin">↻</span>
+                ) : (
+                  <span className="material-icons">send</span>
+                )}
+              </Button>
+            </div>
+          </motion.div>
           
-          {/* Show voice record button when input is empty and not in transcription mode */}
-          {message === "" && transcriptionStatus === "idle" && !isRecording ? (
-            <VoiceRecorder
-              isRecording={isRecording}
-              recordingTime={recordingTime}
-              onStartRecording={startRecording}
-              onStopRecording={stopRecording}
-            />
-          ) : (
-            <Button
-              size="icon"
-              variant="default"
-              className="h-10 w-10 rounded-full bg-primary flex items-center justify-center"
-              onClick={handleSendMessage}
-              disabled={
-                (message.trim() === "" && transcriptionStatus !== "confirm") ||
-                sendMessageMutation.isPending
-              }
-            >
-              <span className="material-icons">send</span>
-            </Button>
-          )}
+          {/* Input help text */}
+          <div className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
+            Type a message or use voice recording to chat with RevocAI
+          </div>
         </div>
       </div>
 
