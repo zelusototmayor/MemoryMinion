@@ -391,21 +391,22 @@ export default function ChatPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Chat input */}
-      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3">
-        <div className="max-w-4xl mx-auto">
+      {/* Chat input - ChatGPT style */}
+      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+        <div className="max-w-3xl mx-auto">
           <motion.div 
-            className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg px-4 py-2 shadow-sm"
+            className="relative border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm bg-white dark:bg-gray-800"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <div className="flex-1 relative">
-              <Input
+            {/* Text input area */}
+            <div className="relative">
+              <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Message RevocAI..."
-                className="pl-2 pr-10 py-3 border-none bg-transparent focus:ring-0 shadow-none"
+                className="w-full resize-none px-4 py-3 max-h-[200px] min-h-[56px] rounded-xl pr-20 focus:outline-none focus:ring-1 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 disabled={transcriptionStatus !== "idle" || isRecording || sendMessageMutation.isPending}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -413,66 +414,95 @@ export default function ChatPage() {
                     handleSendMessage();
                   }
                 }}
+                rows={message.split('\n').length > 3 ? 3 : message.split('\n').length || 1}
               />
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              {/* Voice recorder button */}
-              {message === "" && transcriptionStatus === "idle" && !isRecording && !sendMessageMutation.isPending ? (
-                <VoiceRecorder
-                  isRecording={isRecording}
-                  recordingTime={recordingTime}
-                  onStartRecording={startRecording}
-                  onStopRecording={stopRecording}
-                />
-              ) : null}
               
-              {/* Send button */}
-              <Button
-                size="icon"
-                variant={message.trim() || transcriptionStatus === "confirm" ? "default" : "ghost"}
-                className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                  message.trim() || transcriptionStatus === "confirm" 
-                    ? "bg-primary text-white" 
-                    : "text-gray-400"
-                }`}
-                onClick={handleSendMessage}
-                disabled={
-                  (message.trim() === "" && transcriptionStatus !== "confirm") ||
-                  sendMessageMutation.isPending
-                }
-              >
-                {sendMessageMutation.isPending ? (
-                  <span className="animate-spin">↻</span>
-                ) : (
-                  <span className="material-icons">send</span>
+              {/* Action buttons positioned at the bottom right of textarea */}
+              <div className="absolute bottom-2 right-2 flex items-center">
+                {/* Voice recorder button - always visible */}
+                {transcriptionStatus === "idle" && !isRecording && !sendMessageMutation.isPending ? (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-9 w-9 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 mr-1"
+                    onClick={startRecording}
+                    title="Record voice message"
+                  >
+                    <span className="material-icons">mic</span>
+                  </Button>
+                ) : null}
+                
+                {/* Send button - shows when there's text or in confirmation mode */}
+                {(message.trim() || transcriptionStatus === "confirm") && (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className={`h-9 w-9 rounded-md flex items-center justify-center ${
+                      message.trim() || transcriptionStatus === "confirm" 
+                        ? "bg-primary text-white" 
+                        : "text-gray-400"
+                    }`}
+                    onClick={handleSendMessage}
+                    disabled={sendMessageMutation.isPending}
+                  >
+                    {sendMessageMutation.isPending ? (
+                      <span className="animate-spin">↻</span>
+                    ) : (
+                      <span className="material-icons">send</span>
+                    )}
+                  </Button>
                 )}
-              </Button>
+              </div>
             </div>
           </motion.div>
           
           {/* Input help text */}
           <div className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
-            Type a message or use voice recording to chat with RevocAI
+            Type a message or click the microphone icon to record your voice
           </div>
         </div>
       </div>
 
-      {/* Recording indicator */}
+      {/* Recording indicator - Integrated into input area when recording */}
       {isRecording && (
-        <div className="fixed bottom-20 inset-x-0 flex justify-center">
-          <div className="bg-white dark:bg-gray-800 shadow-lg rounded-full px-4 py-2 flex items-center space-x-2">
-            <div className="h-3 w-3 bg-red-500 rounded-full animate-pulse"></div>
-            <span className="text-sm font-medium text-gray-900 dark:text-white">
-              Recording... {recordingTime}s
-            </span>
-            <button
-              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+        <div className="fixed bottom-20 inset-x-0 flex justify-center z-50">
+          <motion.div 
+            className="bg-white dark:bg-gray-800 shadow-lg rounded-xl px-4 py-3 flex items-center space-x-3"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="flex items-center justify-center h-8 w-8 bg-red-500 rounded-full animate-pulse">
+              <span className="material-icons text-white">mic</span>
+            </div>
+            <div>
+              <div className="flex items-center">
+                <span className="text-sm font-medium text-gray-900 dark:text-white mr-2">
+                  Recording
+                </span>
+                <div className="flex space-x-1">
+                  <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: "0ms" }}></div>
+                  <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: "300ms" }}></div>
+                  <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse" style={{ animationDelay: "600ms" }}></div>
+                </div>
+              </div>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {recordingTime} seconds
+              </span>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-8 ml-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
               onClick={stopRecording}
             >
-              <span className="material-icons text-sm">stop</span>
-            </button>
-          </div>
+              <span className="material-icons text-gray-600 dark:text-gray-300">stop</span>
+              <span className="ml-1 text-sm">Stop</span>
+            </Button>
+          </motion.div>
         </div>
       )}
     </div>
