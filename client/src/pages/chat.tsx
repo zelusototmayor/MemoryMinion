@@ -13,15 +13,15 @@ import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
 import { TranscriptionProcessing } from "@/components/transcription-processing";
 import { TranscriptionConfirmation } from "@/components/transcription-confirmation";
 import { formatRelative } from "date-fns";
-import { Conversation, Message, PotentialContact } from "@shared/schema";
+import { Conversation, Message, MessageWithContactLinks, PotentialContact } from "@shared/schema";
 
 export default function ChatPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const queryClient = useQueryClient();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [match] = useRoute<{ id: string }>("/conversation/:id");
-  const conversationId = match ? parseInt(match.params.id) : null;
+  const [match, params] = useRoute<{ id: string }>("/conversation/:id");
+  const conversationId = match && params ? parseInt(params.id) : null;
   
   const [message, setMessage] = useState("");
   const [detectedContacts, setDetectedContacts] = useState<PotentialContact[]>([]);
@@ -42,7 +42,7 @@ export default function ChatPage() {
   
   const { data, isLoading, isError } = useQuery<{
     conversation: Conversation;
-    messages: Message[];
+    messages: MessageWithContactLinks[];
   }>({
     queryKey: ["/api/conversations", conversationId],
     queryFn: () => fetch(`/api/conversations/${conversationId}`).then((res) => res.json()),
@@ -193,11 +193,14 @@ export default function ChatPage() {
   };
   
   // Group messages by date for display
-  const groupMessagesByDate = (messages: Message[] = []) => {
-    const groups: { [date: string]: Message[] } = {};
+  const groupMessagesByDate = (messages: MessageWithContactLinks[] = []) => {
+    const groups: { [date: string]: MessageWithContactLinks[] } = {};
     
     messages.forEach(message => {
-      const date = new Date(message.created_at).toDateString();
+      // Handle potentially null created_at
+      const createdDate = message.created_at ? new Date(message.created_at) : new Date();
+      const date = createdDate.toDateString();
+      
       if (!groups[date]) {
         groups[date] = [];
       }

@@ -98,8 +98,13 @@ export type ContactWithMentionCount = Contact & {
   mentionCount: number;
 };
 
+// Enhanced ContactLink type with contact name for UI display
+export type ContactLinkWithName = ContactLink & {
+  contact_name: string;
+};
+
 export type MessageWithContactLinks = Message & {
-  contactLinks?: ContactLink[];
+  contactLinks?: ContactLinkWithName[];
 };
 
 export type PotentialContact = {

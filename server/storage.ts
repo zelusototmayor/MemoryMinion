@@ -7,7 +7,8 @@ import {
   type UserWithoutPassword,
   type ConversationWithLastMessage,
   type ContactWithMentionCount,
-  type MessageWithContactLinks
+  type MessageWithContactLinks,
+  type ContactLinkWithName
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, and, desc, sql, like, ilike, asc } from "drizzle-orm";
@@ -205,13 +206,23 @@ export class DatabaseStorage implements IStorage {
     const result: MessageWithContactLinks[] = [];
     
     for (const message of conversationMessages) {
-      const links = await db.select()
+      // Get contact links with contact names for this message
+      const links = await db
+        .select({
+          id: contactLinks.id,
+          contact_id: contactLinks.contact_id,
+          message_id: contactLinks.message_id,
+          relationship: contactLinks.relationship,
+          created_at: contactLinks.created_at,
+          contact_name: contacts.name
+        })
         .from(contactLinks)
+        .innerJoin(contacts, eq(contactLinks.contact_id, contacts.id))
         .where(eq(contactLinks.message_id, message.id));
       
       result.push({
         ...message,
-        contactLinks: links
+        contactLinks: links as unknown as ContactLinkWithName[]
       });
     }
     
