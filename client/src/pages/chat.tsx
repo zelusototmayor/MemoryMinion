@@ -24,10 +24,10 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [match, params] = useRoute<{ id: string }>("/conversation/:id");
   const conversationId = match && params ? parseInt(params.id) : null;
-  
+
   const [message, setMessage] = useState("");
   const [detectedContacts, setDetectedContacts] = useState<PotentialContact[]>([]);
-  
+
   const {
     isRecording,
     audioBlob,
@@ -36,12 +36,12 @@ export default function ChatPage() {
     recordingTime,
     resetRecording,
   } = useVoiceRecorder();
-  
+
   const [transcriptionStatus, setTranscriptionStatus] = useState<
     "idle" | "processing" | "confirm" | "sending"
   >("idle");
   const [transcribedText, setTranscribedText] = useState("");
-  
+
   const { data, isLoading, isError } = useQuery<{
     conversation: Conversation;
     messages: MessageWithContactLinks[];
@@ -54,28 +54,28 @@ export default function ChatPage() {
   const sendMessageMutation = useMutation({
     mutationFn: async (content: string) => {
       if (!user || !conversationId) return null;
-      
+
       const response = await apiRequest("POST", "/api/messages", {
         conversation_id: conversationId,
         sender: "user",
         content: content,
       });
-      
+
       return response.json();
     },
     onSuccess: (data) => {
       setMessage("");
-      
+
       // If we have detected contacts, show them to the user
       if (data?.potentialContacts && data.potentialContacts.length > 0) {
         setDetectedContacts(data.potentialContacts);
       }
-      
+
       // Invalidate conversation messages to refresh the list
       queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId] });
     },
   });
-  
+
   const createContactMutation = useMutation({
     mutationFn: async (contact: { user_id: number; name: string; notes?: string }) => {
       return apiRequest("POST", "/api/contacts", contact).then((res) => res.json());
@@ -87,7 +87,7 @@ export default function ChatPage() {
         const mentionedIn = data.messages?.find((msg: Message) => 
           msg.content.toLowerCase().includes(variables.name.toLowerCase())
         );
-        
+
         if (mentionedIn) {
           createContactLinkMutation.mutate({
             contact_id: data.contact.id,
@@ -96,37 +96,37 @@ export default function ChatPage() {
           });
         }
       }
-      
+
       // Clear detected contacts for this name
       setDetectedContacts(prevContacts => 
         prevContacts.filter(c => c.name !== variables.name)
       );
     }
   });
-  
+
   const createContactLinkMutation = useMutation({
     mutationFn: async (link: { contact_id: number; message_id: number; relationship: string }) => {
       return apiRequest("POST", "/api/contact-links", link).then((res) => res.json());
     }
   });
-  
+
   // Handle audio transcription
   const transcribeAudio = async () => {
     if (!audioBlob) return;
-    
+
     setTranscriptionStatus("processing");
-    
+
     try {
       const formData = new FormData();
       formData.append("audio", audioBlob);
-      
+
       const response = await fetch("/api/transcribe", {
         method: "POST",
         body: formData,
       });
-      
+
       const data = await response.json();
-      
+
       if (data.transcription) {
         setTranscribedText(data.transcription);
         setTranscriptionStatus("confirm");
@@ -139,40 +139,40 @@ export default function ChatPage() {
       resetRecording();
     }
   };
-  
+
   // When recording is stopped, start transcription
   useEffect(() => {
     if (audioBlob && !isRecording) {
       transcribeAudio();
     }
   }, [audioBlob, isRecording]);
-  
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [data?.messages]);
-  
+
   // Go back to conversation list
   const handleBack = () => {
     navigate("/");
   };
-  
+
   // Streaming response state
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [streamingMessageId, setStreamingMessageId] = useState<number | null>(null);
-  
+
   // Simulate streaming text effect for AI responses
   const simulateStreamingResponse = (fullText: string, messageId: number) => {
     setIsStreaming(true);
     setStreamingMessageId(messageId);
-    
+
     let currentIndex = 0;
     const textLength = fullText.length;
     const chunkSize = Math.max(1, Math.floor(textLength / 30)); // Adjust for speed
-    
+
     setStreamingText("");
-    
+
     const streamInterval = setInterval(() => {
       if (currentIndex < textLength) {
         const nextIndex = Math.min(currentIndex + chunkSize, textLength);
@@ -184,70 +184,70 @@ export default function ChatPage() {
         setStreamingMessageId(null);
       }
     }, 25); // Adjust timing for realistic feel
-    
+
     return () => clearInterval(streamInterval);
   };
-  
+
   // Handle sending message
   const handleSendMessage = async () => {
     if (!message.trim() && !transcribedText) return;
-    
+
     const contentToSend = transcriptionStatus === "confirm" ? transcribedText : message;
-    
+
     if (contentToSend.trim()) {
       if (transcriptionStatus === "confirm") {
         setTranscriptionStatus("sending");
       }
-      
+
       const result = await sendMessageMutation.mutateAsync(contentToSend);
-      
+
       // Simulate streaming for AI response
       if (result?.aiResponse) {
         simulateStreamingResponse(result.aiResponse.content, result.aiResponse.id);
       }
-      
+
       if (transcriptionStatus === "sending") {
         setTranscriptionStatus("idle");
         resetRecording();
       }
     }
   };
-  
+
   // Handle transcription confirmation
   const handleConfirmTranscription = () => {
     handleSendMessage();
   };
-  
+
   // Handle transcription cancellation
   const handleCancelTranscription = () => {
     setTranscriptionStatus("idle");
     setTranscribedText("");
     resetRecording();
   };
-  
+
   // Handle transcription edit
   const handleEditTranscription = (text: string) => {
     setTranscribedText(text);
   };
-  
+
   // Group messages by date for display
   const groupMessagesByDate = (messages: MessageWithContactLinks[] = []) => {
     const groups: { [date: string]: MessageWithContactLinks[] } = {};
-    
+
     messages.forEach(message => {
       // Handle potentially null created_at
       const createdDate = message.created_at ? new Date(message.created_at) : new Date();
       const date = createdDate.toDateString();
-      
+
       if (!groups[date]) {
         groups[date] = [];
       }
       groups[date].push(message);
     });
-    
+
     return groups;
   };
-  
+
   // Check if loading or error
   if (isLoading) {
     return (
@@ -270,7 +270,7 @@ export default function ChatPage() {
       </div>
     );
   }
-  
+
   if (isError || !data) {
     return (
       <div className="fixed inset-0 bg-gray-50 dark:bg-gray-900 z-20 flex flex-col">
@@ -291,9 +291,9 @@ export default function ChatPage() {
       </div>
     );
   }
-  
+
   const messageGroups = groupMessagesByDate(data.messages);
-  
+
   return (
     <div className="fixed inset-0 bg-gray-50 dark:bg-gray-900 z-20 flex flex-col">
       {/* Chat header */}
@@ -326,7 +326,7 @@ export default function ChatPage() {
                 {formatRelative(new Date(date), new Date())}
               </span>
             </div>
-            
+
             {/* Messages for this date */}
             <div className="space-y-4">
               {messages.map((message) => (
@@ -341,7 +341,7 @@ export default function ChatPage() {
             </div>
           </div>
         ))}
-        
+
         {/* If there are detected contacts, show contact prompt */}
         {detectedContacts.map((contact) => (
           <ContactPrompt
@@ -365,12 +365,12 @@ export default function ChatPage() {
             }}
           />
         ))}
-        
+
         {/* Transcription in progress */}
         {transcriptionStatus === "processing" && (
           <TranscriptionProcessing onCancel={handleCancelTranscription} />
         )}
-        
+
         {/* Transcription confirmation */}
         {transcriptionStatus === "confirm" && (
           <TranscriptionConfirmation
@@ -380,14 +380,14 @@ export default function ChatPage() {
             onCancel={handleCancelTranscription}
           />
         )}
-        
+
         {/* Show typing indicator when message is being processed but streaming hasn't started yet */}
         {sendMessageMutation.isPending && !isStreaming && (
           <div className="flex justify-start mb-4">
             <TypingIndicator />
           </div>
         )}
-        
+
         <div ref={messagesEndRef} />
       </div>
 
@@ -416,25 +416,24 @@ export default function ChatPage() {
                 }}
                 rows={message.split('\n').length > 3 ? 3 : message.split('\n').length || 1}
               />
-              
+
               {/* Action buttons positioned at the bottom right of textarea */}
               <div className="absolute bottom-2 right-2 flex items-center">
-                {/* Voice recorder button - always visible */}
-                {transcriptionStatus === "idle" && !isRecording && !sendMessageMutation.isPending ? (
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-9 w-9 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 mr-1"
-                    onClick={startRecording}
-                    title="Record voice message"
-                  >
-                    <span className="material-icons">mic</span>
-                  </Button>
-                ) : null}
-                
-                {/* Send button - shows when there's text or in confirmation mode */}
-                {(message.trim() || transcriptionStatus === "confirm") && (
+                {/* Voice recorder button */}
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-9 w-9 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 mr-1"
+                onClick={startRecording}
+                disabled={transcriptionStatus !== "idle" || isRecording || sendMessageMutation.isPending}
+                title="Record voice message"
+              >
+                <span className="material-icons">mic</span>
+              </Button>
+
+              {/* Send button - shows when there's text or in confirmation mode */}
+              {(message.trim() || transcriptionStatus === "confirm") && (
                   <Button
                     type="button"
                     size="icon"
@@ -457,7 +456,7 @@ export default function ChatPage() {
               </div>
             </div>
           </motion.div>
-          
+
           {/* Input help text */}
           <div className="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
             Type a message or click the microphone icon to record your voice
