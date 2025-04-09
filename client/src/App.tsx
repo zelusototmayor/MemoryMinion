@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home";
@@ -12,7 +12,10 @@ function Router() {
   // Skip authentication check for now
   return (
     <Switch>
-      <Route path="/" component={HomePage} />
+      {/* Redirect root to conversations page */}
+      <Route path="/">
+        <Redirect to="/conversations" />
+      </Route>
       <Route path="/conversations" component={ConversationsPage} />
       <Route path="/conversation/:id" component={ChatPage} />
       <Route path="/contacts" component={ContactsPage} />

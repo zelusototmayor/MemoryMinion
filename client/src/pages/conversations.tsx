@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
@@ -54,15 +54,24 @@ export default function ConversationsPage() {
   );
   
   const renderConversationItem = (conversation: ConversationWithLastMessage) => {
-    const timeAgo = conversation.lastMessage?.created_at 
-      ? formatDistanceToNow(new Date(conversation.lastMessage.created_at), { addSuffix: true })
-      : formatDistanceToNow(new Date(conversation.created_at), { addSuffix: true });
+    const lastMessageDate = conversation.lastMessage?.created_at 
+      ? new Date(conversation.lastMessage.created_at) 
+      : null;
+    
+    const conversationDate = conversation.created_at 
+      ? new Date(conversation.created_at) 
+      : new Date();
+      
+    const timeAgo = formatDistanceToNow(
+      lastMessageDate || conversationDate, 
+      { addSuffix: true }
+    );
     
     return (
       <div key={conversation.id} className="conversation-item border-b border-gray-200 dark:border-gray-700">
-        <a 
-          href={`/conversation/${conversation.id}`}
-          className="block p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition duration-150"
+        <div
+          onClick={() => navigate(`/conversation/${conversation.id}`)}
+          className="block p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition duration-150 cursor-pointer"
         >
           <div className="flex justify-between items-start mb-1">
             <h3 className="font-medium text-gray-900 dark:text-white">{conversation.title}</h3>
@@ -84,7 +93,7 @@ export default function ConversationsPage() {
               {conversation.contactCount ? `${conversation.contactCount} contacts mentioned` : 'No contacts yet'}
             </div>
           </div>
-        </a>
+        </div>
       </div>
     );
   };
