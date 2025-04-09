@@ -1,21 +1,43 @@
 import { useLocation } from "wouter";
-import ConversationsPage from "./conversations";
 import ContactsPage from "./contacts";
 import TimelinePage from "./timeline";
 import { useState } from "react";
 import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
+import { ActiveConversation } from "@/components/active-conversation";
+import { ConversationsSidebar } from "@/components/conversations-sidebar";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<"conversations" | "contacts" | "timeline">("conversations");
+  const [activeTab, setActiveTab] = useState<"chat" | "contacts" | "timeline">("chat");
+  const [showSidebar, setShowSidebar] = useState(false);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [, navigate] = useLocation();
   
   const handleNewConversation = async () => {
-    // This will be handled in the conversations component
-    const conversationsTab = document.getElementById('conversations-tab');
-    if (conversationsTab) {
-      conversationsTab.click();
+    try {
+      const response = await apiRequest("POST", "/api/conversations", {
+        title: "New Conversation",
+        user_id: user?.id
+      });
+      
+      if (!response.ok) throw new Error("Failed to create conversation");
+      
+      const data = await response.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+      
+      // Ensure chat tab is active
+      setActiveTab("chat");
+    } catch (error) {
+      console.error("Failed to create conversation:", error);
     }
+  };
+  
+  const toggleSidebar = () => {
+    setShowSidebar(!showSidebar);
   };
   
   return (
@@ -28,16 +50,24 @@ export default function HomePage() {
           <div className="flex justify-between items-center h-16">
             <div className="flex space-x-4">
               <button 
-                id="conversations-tab"
+                onClick={toggleSidebar}
+                className="mr-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                title="Toggle conversations sidebar"
+              >
+                <span className="material-icons">menu</span>
+              </button>
+              
+              <button 
+                id="chat-tab"
                 className={`px-3 py-2 text-sm font-medium rounded-md ${
-                  activeTab === "conversations" 
+                  activeTab === "chat" 
                     ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" 
                     : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                 }`}
-                onClick={() => setActiveTab("conversations")}
+                onClick={() => setActiveTab("chat")}
               >
                 <span className="material-icons text-sm mr-1">chat</span>
-                Conversations
+                Chat
               </button>
               <button 
                 className={`px-3 py-2 text-sm font-medium rounded-md ${
@@ -77,15 +107,25 @@ export default function HomePage() {
         </div>
       </div>
       
-      {/* Content Area */}
-      <div className="flex-1 overflow-y-auto">
-        {activeTab === "conversations" ? (
-          <ConversationsPage />
-        ) : activeTab === "contacts" ? (
-          <ContactsPage />
-        ) : (
-          <TimelinePage />
+      {/* Content Area with Sidebar */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar - only visible when showSidebar is true */}
+        {showSidebar && (
+          <div className="w-64 border-r border-gray-200 dark:border-gray-700 flex-shrink-0">
+            <ConversationsSidebar />
+          </div>
         )}
+        
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-y-auto">
+          {activeTab === "chat" ? (
+            <ActiveConversation />
+          ) : activeTab === "contacts" ? (
+            <ContactsPage />
+          ) : (
+            <TimelinePage />
+          )}
+        </div>
       </div>
     </div>
   );
