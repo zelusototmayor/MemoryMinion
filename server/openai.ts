@@ -1,4 +1,7 @@
 import OpenAI from "openai";
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 // The newest OpenAI model is "gpt-4o" which was released May 13, 2024. Do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "test-key" });
@@ -6,31 +9,38 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "test-key" });
 // Transcribe audio to text using Whisper API
 export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
   try {
-    // Create a temporary file to use with OpenAI API
-    const fs = require('fs');
-    const path = require('path');
-    const os = require('os');
+    console.log(`Received audio buffer of size: ${audioBuffer.length} bytes`);
     
     // Create a temporary file
-    const tempFilePath = path.join(os.tmpdir(), `audio-${Date.now()}.webm`);
+    const tempDir = os.tmpdir();
+    const tempFileName = `audio-${Date.now()}.webm`;
+    const tempFilePath = path.join(tempDir, tempFileName);
+    
+    // Write the buffer to the temporary file
     fs.writeFileSync(tempFilePath, audioBuffer);
+    console.log(`Created temporary file: ${tempFilePath}`);
     
-    // Create a file object that OpenAI can use
-    const file = fs.createReadStream(tempFilePath);
-    
-    const transcription = await openai.audio.transcriptions.create({
-      file: file,
-      model: "whisper-1",
-    });
-    
-    // Clean up the temporary file
     try {
-      fs.unlinkSync(tempFilePath);
-    } catch (cleanupError) {
-      console.warn("Failed to cleanup temporary audio file:", cleanupError);
+      // Create a readable stream for the OpenAI API
+      const fileStream = fs.createReadStream(tempFilePath);
+      
+      // Use the OpenAI SDK to transcribe
+      const transcription = await openai.audio.transcriptions.create({
+        file: fileStream,
+        model: "whisper-1",
+      });
+      
+      console.log("Transcription successful:", transcription.text);
+      return transcription.text;
+    } finally {
+      // Clean up the temporary file
+      try {
+        fs.unlinkSync(tempFilePath);
+        console.log(`Deleted temporary file: ${tempFilePath}`);
+      } catch (cleanupError) {
+        console.warn("Failed to delete temporary file:", cleanupError);
+      }
     }
-
-    return transcription.text;
   } catch (error) {
     console.error("Error transcribing audio:", error);
     throw new Error("Failed to transcribe audio: " + (error as Error).message);
