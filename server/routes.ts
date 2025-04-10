@@ -195,6 +195,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Important: /frequent must come BEFORE /:id to avoid route conflicts
+  app.get("/api/contacts/frequent", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 4;
+      
+      const contacts = await storage.getFrequentContactsForUser(userId, limit);
+      return res.json({ contacts });
+    } catch (error) {
+      console.error("Error fetching frequent contacts:", error);
+      return res.status(500).json({ message: "Failed to fetch frequent contacts" });
+    }
+  });
+  
   app.get("/api/contacts/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
@@ -241,19 +255,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching contact:", error);
       return res.status(500).json({ message: "Failed to fetch contact" });
-    }
-  });
-  
-  app.get("/api/contacts/frequent", isAuthenticated, async (req: Request, res: Response) => {
-    try {
-      const userId = (req.user as Express.User).id;
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 4;
-      
-      const contacts = await storage.getFrequentContactsForUser(userId, limit);
-      return res.json({ contacts });
-    } catch (error) {
-      console.error("Error fetching frequent contacts:", error);
-      return res.status(500).json({ message: "Failed to fetch frequent contacts" });
     }
   });
   
