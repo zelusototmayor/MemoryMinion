@@ -6,18 +6,29 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "test-key" });
 // Transcribe audio to text using Whisper API
 export async function transcribeAudio(audioBuffer: Buffer): Promise<string> {
   try {
-    const fileObj = {
-      buffer: audioBuffer,
-      name: "audio.webm",
-      size: audioBuffer.length,
-      type: 'audio/webm',
-      lastModified: Date.now()
-    };
+    // Create a temporary file to use with OpenAI API
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+    
+    // Create a temporary file
+    const tempFilePath = path.join(os.tmpdir(), `audio-${Date.now()}.webm`);
+    fs.writeFileSync(tempFilePath, audioBuffer);
+    
+    // Create a file object that OpenAI can use
+    const file = fs.createReadStream(tempFilePath);
     
     const transcription = await openai.audio.transcriptions.create({
-      file: fileObj as any,
+      file: file,
       model: "whisper-1",
     });
+    
+    // Clean up the temporary file
+    try {
+      fs.unlinkSync(tempFilePath);
+    } catch (cleanupError) {
+      console.warn("Failed to cleanup temporary audio file:", cleanupError);
+    }
 
     return transcription.text;
   } catch (error) {
@@ -32,10 +43,41 @@ export async function processMessage(
   conversationHistory: Array<{ role: "user" | "assistant", content: string }>
 ): Promise<string> {
   try {
+    const isQuestion = content.trim().endsWith("?") || 
+                       content.toLowerCase().includes("what") ||
+                       content.toLowerCase().includes("why") ||
+                       content.toLowerCase().includes("how") ||
+                       content.toLowerCase().includes("when") ||
+                       content.toLowerCase().includes("where") ||
+                       content.toLowerCase().includes("who") ||
+                       content.toLowerCase().includes("can you") ||
+                       content.toLowerCase().includes("could you");
+    
+    const systemPrompt = isQuestion 
+      ? "You are RevocAI, a helpful conversation assistant. Answer the user's question directly and concisely based on your knowledge. Provide accurate information without unnecessary detail."
+      : `You are RevocAI, a conversation analysis assistant. When responding to input that isn't a direct question, follow this format:
+
+1. Extract any important contacts/entities mentioned in the message.
+2. Organize the key information into bullet points (3-5 bullet points, as appropriate).
+3. Keep your response concise and focus on the most relevant information.
+
+Example input: "I had a meeting with John from Marketing about the Q4 campaign. He suggested we increase the budget by 15% and target new demographics. Sarah from Finance agreed but wanted to review the numbers first."
+
+Example response:
+Contacts mentioned:
+• John (Marketing) - Suggested increasing budget for Q4 campaign
+• Sarah (Finance) - Agreed pending financial review
+
+Key points:
+• Discussion about Q4 marketing campaign
+• Proposal to increase budget by 15%
+• Plans to target new demographics
+• Financial review needed before proceeding`;
+    
     const messages = [
       {
         role: "system" as const,
-        content: "You are RevocAI, a helpful conversation assistant. Provide concise, informative responses.",
+        content: systemPrompt,
       },
       ...conversationHistory,
       { role: "user" as const, content },
@@ -44,6 +86,7 @@ export async function processMessage(
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages,
+      temperature: isQuestion ? 0.7 : 0.3, // Lower temperature for analytical responses
     });
 
     return response.choices[0].message.content || "I'm sorry, I couldn't process that.";

@@ -153,21 +153,32 @@ export function ActiveConversation() {
     setTranscriptionStatus("processing");
 
     try {
+      // Create form data with the proper file name and type
       const formData = new FormData();
-      formData.append("audio", audioBlob);
+      // Make sure we're sending a file with the correct name and MIME type
+      const file = new File([audioBlob], "audio.webm", { type: audioBlob.type || "audio/webm" });
+      formData.append("audio", file);
+
+      console.log("Sending audio for transcription, size:", file.size, "type:", file.type);
 
       const response = await fetch("/api/transcribe", {
         method: "POST",
         body: formData,
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Transcription failed with status ${response.status}: ${errorText}`);
+      }
+
       const responseData = await response.json();
 
       if (responseData.text) {
+        console.log("Transcription successful:", responseData.text);
         setTranscribedText(responseData.text);
         setTranscriptionStatus("confirm");
       } else {
-        throw new Error("Failed to transcribe audio");
+        throw new Error("No transcription text received from API");
       }
     } catch (error) {
       console.error("Transcription error:", error);
