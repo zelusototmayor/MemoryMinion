@@ -51,10 +51,19 @@ export function MessageBubble({ message, isUser, isStreaming = false, streamingT
       '<a href="/search?q=$1" class="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1 rounded hover:underline">$1</a>'
     );
     
-    // Enhance markdown list items with additional styling
+    // Enhance markdown list items with additional styling (handle various bullet formats)
     processed = processed.replace(
-      /^- (.+)$/gm,
-      '<li class="pl-1 py-1 flex"><span class="text-primary mr-2">•</span><span>$1</span></li>'
+      /^(?:- |\* |\d+\. )(.+)$/gm,
+      (match, content, offset, string) => {
+        // Check if it's a numbered list item
+        if (match.match(/^\d+\. /)) {
+          const numberMatch = match.match(/^(\d+)\. /);
+          const number = numberMatch ? numberMatch[1] : '1';
+          return `<li class="pl-1 py-1 flex items-start"><span class="text-primary font-medium mr-2 min-w-[1rem] text-right">${number}.</span><span>${content}</span></li>`;
+        }
+        // Otherwise it's a bullet list item
+        return `<li class="pl-1 py-1 flex items-start"><span class="text-primary mr-2">•</span><span>${content}</span></li>`;
+      }
     );
     
     // Enhance markdown headings
@@ -99,12 +108,42 @@ export function MessageBubble({ message, isUser, isStreaming = false, streamingT
       // Sanitize the HTML to prevent XSS
       const sanitizedHtml = DOMPurify.sanitize(htmlContent);
       
-      // Return the formatted content
+      // Add custom CSS for better rendering
+      const bubbleStyles = `
+        .message-content p {
+          margin: 0.5rem 0;
+          line-height: 1.5;
+        }
+        .message-content ul, .message-content ol {
+          padding-left: 0.5rem;
+          margin: 0.75rem 0;
+        }
+        .message-content li {
+          margin-bottom: 0.25rem;
+        }
+        .message-content h3 {
+          font-weight: 600;
+          margin-top: 1rem;
+          margin-bottom: 0.5rem;
+          color: var(--tw-prose-headings);
+        }
+        .message-content a {
+          text-decoration: none;
+        }
+        .message-content a:hover {
+          text-decoration: underline;
+        }
+      `;
+      
+      // Return the formatted content with inline styles
       return (
-        <div
-          className="text-sm prose dark:prose-invert max-w-none"
-          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-        />
+        <>
+          <style dangerouslySetInnerHTML={{ __html: bubbleStyles }} />
+          <div
+            className="text-sm prose dark:prose-invert max-w-none break-words message-content"
+            dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+          />
+        </>
       );
     }
   };
