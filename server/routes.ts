@@ -49,7 +49,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/conversations", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const userId = (req.user as Express.User).id;
+      
+      // Get conversations
       const conversations = await storage.getConversationsForUser(userId);
+      
+      // For each conversation, get contact count
+      for (const conversation of conversations) {
+        // Get messages for this conversation
+        const messages = await storage.getMessagesForConversation(conversation.id);
+        
+        // Extract unique contact IDs mentioned in this conversation
+        const contactIds = new Set<number>();
+        messages.forEach(message => {
+          if (message.contactLinks && message.contactLinks.length > 0) {
+            message.contactLinks.forEach(link => {
+              contactIds.add(link.contact_id);
+            });
+          }
+        });
+        
+        // Add contact count to conversation
+        conversation.contactCount = contactIds.size;
+      }
+      
       return res.json({ conversations });
     } catch (error) {
       console.error("Error fetching conversations:", error);

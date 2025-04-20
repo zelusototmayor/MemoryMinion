@@ -66,16 +66,8 @@ export function ConversationTimeline({
   return (
     <div 
       ref={timelineRef}
-      className={cn("w-full p-4", className)}
+      className={cn("w-full", className)}
     >
-      <div className="flex flex-col mb-6">
-        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-          Conversation Timeline
-        </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Visualize your conversation history
-        </p>
-      </div>
       
       <div className="relative">
         {/* Timeline line */}
@@ -165,12 +157,12 @@ export function ConversationTimeline({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
-              className="flex flex-col items-center justify-center py-12 text-center"
+              className="flex flex-col items-center justify-center py-16 text-center"
             >
-              <div className="h-20 w-20 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
-                <span className="material-icons text-gray-400 text-3xl">timeline</span>
+              <div className="h-24 w-24 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center mb-4">
+                <span className="material-icons text-gray-300 text-4xl">timeline</span>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No conversations yet</h3>
+              <h3 className="text-xl font-medium text-gray-900 dark:text-white mb-2">No conversations yet</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md">
                 Start a new conversation to see your timeline visualized here.
               </p>

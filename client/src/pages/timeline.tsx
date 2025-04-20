@@ -6,32 +6,36 @@ import { Button } from "@/components/ui/button";
 import { ConversationWithLastMessage, ContactWithMentionCount } from "@shared/schema";
 import { ConversationTimeline } from "@/components/ui/conversation-timeline";
 import Header from "@/components/header";
-import { BottomNav } from "@/components/navigation/bottom-nav";
 import { useState } from "react";
 
 export default function TimelinePage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
-  const [activeTab, setActiveTab] = useState("timeline");
   
   // Fetch conversations
   const { 
-    data: conversations, 
+    data: conversationsData, 
     isLoading: isLoadingConversations, 
     isError: isErrorConversations 
-  } = useQuery<ConversationWithLastMessage[]>({
+  } = useQuery<{ conversations: ConversationWithLastMessage[] }>({
     queryKey: ["/api/conversations"],
     queryFn: () => fetch("/api/conversations").then((res) => res.json()),
   });
   
+  // Extract conversations array from response
+  const conversations = conversationsData?.conversations || [];
+  
   // Fetch popular contacts
   const { 
-    data: contacts, 
+    data: contactsData, 
     isLoading: isLoadingContacts 
-  } = useQuery<ContactWithMentionCount[]>({
+  } = useQuery<{ contacts: ContactWithMentionCount[] }>({
     queryKey: ["/api/contacts/frequent"],
     queryFn: () => fetch("/api/contacts/frequent").then((res) => res.json()),
   });
+  
+  // Extract contacts array from response
+  const contacts = contactsData?.contacts || [];
   
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -90,8 +94,6 @@ export default function TimelinePage() {
           />
         )}
       </main>
-      
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   );
 }
