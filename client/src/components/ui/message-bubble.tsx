@@ -3,6 +3,8 @@ import { format } from "date-fns";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 
 type MessageBubbleProps = {
   message: Message | MessageWithContactLinks;
@@ -29,23 +31,88 @@ export function MessageBubble({ message, isUser, isStreaming = false, streamingT
   // Check if message has contact links
   const hasContactLinks = 'contactLinks' in message && message.contactLinks && message.contactLinks.length > 0;
   
-  // Function to highlight contact names in message content
-  const renderMessageContentWithHighlightedContacts = () => {
-    if (!hasContactLinks) {
+  // Process AI-specific formatting for dates, contacts, and conversations
+  const processSpecialFormatting = (text: string): string => {
+    // Process dates (format: **DATE: YYYY-MM-DD**)
+    let processed = text.replace(
+      /\*\*DATE: (\d{4}-\d{2}-\d{2})\*\*/g, 
+      '<span class="text-primary font-medium">$1</span>'
+    );
+    
+    // Process contact references (format: [[Contact: Name]])
+    processed = processed.replace(
+      /\[\[Contact: ([^\]]+)\]\]/g,
+      '<a href="/contact-search?name=$1" class="bg-primary-100 dark:bg-primary-900 text-primary dark:text-primary-300 px-1 rounded hover:underline">$1</a>'
+    );
+    
+    // Process conversation references (format: [[Conversation: Topic]])
+    processed = processed.replace(
+      /\[\[Conversation: ([^\]]+)\]\]/g,
+      '<a href="/search?q=$1" class="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1 rounded hover:underline">$1</a>'
+    );
+    
+    // Enhance markdown list items with additional styling
+    processed = processed.replace(
+      /^- (.+)$/gm,
+      '<li class="pl-1 py-1 flex"><span class="text-primary mr-2">•</span><span>$1</span></li>'
+    );
+    
+    // Enhance markdown headings
+    processed = processed.replace(
+      /^## (.+)$/gm,
+      '<h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-3 mb-2">$1</h3>'
+    );
+    
+    return processed;
+  };
+  
+  // Function to render rich, formatted content for AI messages
+  const renderRichMessageContent = () => {
+    // Get the content to display (streaming or final)
+    const content = isStreaming ? streamingText : message.content;
+    
+    if (isUser) {
+      // For user messages, just use the simple highlighting of contacts
+      if (!hasContactLinks) {
+        return (
+          <motion.p 
+            className="text-sm"
+            initial={isStreaming ? { opacity: 1 } : {}}
+            animate={isStreaming ? { opacity: 1 } : {}}
+          >
+            {content}
+          </motion.p>
+        );
+      }
+      
+      // If user message has contacts, highlight them
+      return renderContactHighlighting(content);
+    } else {
+      // For AI messages, use the full rich rendering with markdown and special formatting
+      
+      // First, apply our special formatters to the raw content
+      let processedContent = processSpecialFormatting(content);
+      
+      // Then, parse the markdown
+      const htmlContent = marked.parse(processedContent) as string;
+      
+      // Sanitize the HTML to prevent XSS
+      const sanitizedHtml = DOMPurify.sanitize(htmlContent);
+      
+      // Return the formatted content
       return (
-        <motion.p 
-          className="text-sm"
-          initial={isStreaming ? { opacity: 1 } : {}}
-          animate={isStreaming ? { opacity: 1 } : {}}
-        >
-          {isStreaming ? streamingText : message.content}
-        </motion.p>
+        <div
+          className="text-sm prose dark:prose-invert max-w-none"
+          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+        />
       );
     }
-    
+  };
+  
+  // Function to highlight contact names in message content (used for user messages)
+  const renderContactHighlighting = (content: string) => {
     // Ensure TypeScript recognizes we're working with MessageWithContactLinks
     const messageWithContacts = message as MessageWithContactLinks;
-    let content = isStreaming ? streamingText : messageWithContacts.content;
     
     // Sort contact links by name length (longest first) to prevent shorter names from 
     // matching inside longer names
@@ -107,7 +174,7 @@ export function MessageBubble({ message, isUser, isStreaming = false, streamingT
     return (
       <div className="flex flex-col items-end space-y-1 max-w-[85%] ml-auto">
         <div className="message-bubble-user bg-primary text-white p-3 rounded-tl-lg rounded-tr-lg rounded-bl-lg">
-          {renderMessageContentWithHighlightedContacts()}
+          {renderRichMessageContent()}
         </div>
         <div className="flex items-center space-x-1">
           <span className="text-xs text-gray-500 dark:text-gray-400">{time}</span>
@@ -134,7 +201,7 @@ export function MessageBubble({ message, isUser, isStreaming = false, streamingT
             AI
           </div>
           <div className="flex-1">
-            {renderMessageContentWithHighlightedContacts()}
+            {renderRichMessageContent()}
           </div>
         </div>
       </motion.div>
