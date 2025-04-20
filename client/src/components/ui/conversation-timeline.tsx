@@ -4,6 +4,7 @@ import { ConversationWithLastMessage, ContactWithMentionCount } from "@shared/sc
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ConversationContactBadges } from "./conversation-contact-badges";
 
 type ConversationTimelineProps = {
   conversations: ConversationWithLastMessage[];
@@ -134,46 +135,13 @@ export function ConversationTimeline({
                       )}
                       
                       {/* Contact badges (if present in the conversation) */}
-                      {Array.isArray(contacts) && contacts.length > 0 && (
+                      {conversation.contactCount && conversation.contactCount > 0 ? (
+                        <ConversationContactBadges conversationId={conversation.id} />
+                      ) : (
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {contacts
-                            .filter(contact => {
-                              // This is a placeholder - in a real implementation, we'd need to
-                              // query which contacts are mentioned in this conversation
-                              return Math.random() > 0.5; // Just for demo
-                            })
-                            .slice(0, 3)
-                            .map((contact) => {
-                              const color = getContactColor(contact.id);
-                              
-                              return (
-                                <motion.span
-                                  key={contact.id}
-                                  initial={{ scale: 0.8, opacity: 0 }}
-                                  animate={{ scale: 1, opacity: 1 }}
-                                  transition={{ delay: 0.2 + (0.1 * contact.id) }}
-                                  className={cn(
-                                    "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium",
-                                    color === "blue" && "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
-                                    color === "green" && "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
-                                    color === "purple" && "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
-                                    color === "yellow" && "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
-                                    color === "pink" && "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300",
-                                    color === "orange" && "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
-                                    color === "indigo" && "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300",
-                                    color === "teal" && "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-300"
-                                  )}
-                                >
-                                  {contact.name}
-                                </motion.span>
-                              );
-                            })}
-                          {/* Show more if truncated */}
-                          {Array.isArray(contacts) && contacts.length > 3 && (
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                              +{contacts.length - 3} more
-                            </span>
-                          )}
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">
+                            No contacts mentioned
+                          </span>
                         </div>
                       )}
                       

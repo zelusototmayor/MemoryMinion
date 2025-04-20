@@ -1,7 +1,13 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
-import { insertContactSchema, insertConversationSchema, insertMessageSchema, insertContactLinkSchema } from "@shared/schema";
+import { 
+  insertContactSchema, 
+  insertConversationSchema, 
+  insertMessageSchema, 
+  insertContactLinkSchema,
+  type ContactWithMentionCount 
+} from "@shared/schema";
 import { storage } from "./storage";
 import { transcribeAudio, processMessage, detectContacts, generateConversationTitle } from "./openai";
 import multer from "multer";
@@ -315,6 +321,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating title:", error);
       return res.status(500).json({ message: "Failed to generate title" });
+    }
+  });
+
+  // Get contacts mentioned in a conversation
+  app.get("/api/conversations/:id/contacts", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const conversationId = parseInt(req.params.id, 10);
+      
+      if (isNaN(conversationId)) {
+        return res.status(400).json({ message: "Invalid conversation ID" });
+      }
+      
+      // Verify the conversation exists and belongs to user
+      const conversation = await storage.getConversationById(conversationId);
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      const userId = (req.user as Express.User).id;
+      if (conversation.user_id !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Get all messages for this conversation
+      const messages = await storage.getMessagesForConversation(conversationId);
+      
+      // Extract unique contact IDs mentioned in this conversation
+      const contactIds = new Set<number>();
+      messages.forEach(message => {
+        if (message.contactLinks && message.contactLinks.length > 0) {
+          message.contactLinks.forEach(link => {
+            contactIds.add(link.contact_id);
+          });
+        }
+      });
+      
+      // Get the contact details for these IDs
+      const contactsWithMentions: ContactWithMentionCount[] = [];
+      
+      // Convert Set to Array and process in sequence
+      const contactIdsArray = Array.from(contactIds);
+      for (let i = 0; i < contactIdsArray.length; i++) {
+        const contactId = contactIdsArray[i];
+        const contact = await storage.getContactById(contactId);
+        
+        if (contact) {
+          // Count mentions of this contact in the conversation
+          let mentionCount = 0;
+          messages.forEach(message => {
+            if (message.contactLinks) {
+              message.contactLinks.forEach(link => {
+                if (link.contact_id === contactId) {
+                  mentionCount++;
+                }
+              });
+            }
+          });
+          
+          // Add to result with mention count
+          contactsWithMentions.push({
+            ...contact,
+            mentionCount
+          });
+        }
+      }
+      
+      // Sort by mention count (most mentioned first)
+      contactsWithMentions.sort((a, b) => b.mentionCount - a.mentionCount);
+      
+      return res.json({ contacts: contactsWithMentions });
+    } catch (error) {
+      console.error("Error fetching conversation contacts:", error);
+      return res.status(500).json({ message: "Failed to fetch conversation contacts" });
     }
   });
 
