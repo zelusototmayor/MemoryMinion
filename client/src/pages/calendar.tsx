@@ -123,7 +123,8 @@ export default function CalendarPage() {
                     className="rounded-md"
                     modifiersClassNames={{
                       today: "bg-primary/20 text-primary font-bold",
-                      selected: "bg-primary text-primary-foreground"
+                      selected: "bg-primary text-primary-foreground",
+                      hasEvent: "rdp-day_hasEvent"
                     }}
                     modifiers={{
                       hasEvent: Object.keys(datesWithEvents).map(dateStr => new Date(dateStr))

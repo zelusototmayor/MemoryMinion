@@ -11,18 +11,14 @@
   bottom: 2px;
   left: 50%;
   transform: translateX(-50%);
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background-color: var(--primary);
-}
-
-/* Using regular CSS variables to match with your theme */
-:root {
-  --primary: hsl(221.2 83.2% 53.3%);
+  background-color: hsl(221.2 83.2% 53.3%); /* Primary color */
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.2);
 }
 
 /* Dark mode support */
-.dark {
-  --primary: hsl(217.2 91.2% 59.8%);
+.dark .rdp-day_hasEvent::after {
+  background-color: hsl(217.2 91.2% 59.8%); /* Primary color for dark mode */
 }
