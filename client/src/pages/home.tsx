@@ -43,13 +43,12 @@ export default function HomePage() {
   };
   
   return (
-    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900 relative">
       <Header />
       
-      {/* Mobile-optimized navigation */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        {/* Desktop navigation - hidden on mobile */}
-        <div className="hidden sm:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Desktop navigation - hidden on mobile */}
+      <div className="hidden sm:block bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex space-x-4">
               <button 
@@ -130,9 +129,11 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-        
-        {/* Mobile horizontal scrollable tabs - visible only on mobile */}
-        <div className="sm:hidden overflow-x-auto scrollbar-hide">
+      </div>
+      
+      {/* Mobile horizontal scrollable tabs - visible only on mobile at top when no conversation is active */}
+      <div className="sm:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="overflow-x-auto scrollbar-hide">
           <div className="flex px-2 py-2 space-x-2 whitespace-nowrap">
             <button 
               onClick={toggleSidebar}
@@ -207,7 +208,7 @@ export default function HomePage() {
         </div>
         
         {/* New Chat Button - Mobile only */}
-        <div className="sm:hidden px-4 py-2 border-t border-gray-200 dark:border-gray-700">
+        <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">
           <Button 
             onClick={handleNewConversation}
             className="bg-primary text-white rounded-md w-full py-2 text-sm font-medium flex items-center justify-center"
@@ -239,8 +240,8 @@ export default function HomePage() {
           </>
         )}
         
-        {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto relative">
+        {/* Main Content Area - add pb-16 to ensure content doesn't get hidden behind the mobile nav bar */}
+        <div className="flex-1 overflow-y-auto relative pb-16 sm:pb-0">
           {activeTab === "chat" ? (
             <ActiveConversation />
           ) : activeTab === "contacts" ? (
@@ -252,6 +253,61 @@ export default function HomePage() {
           ) : (
             <TasksPage />
           )}
+        </div>
+      </div>
+      
+      {/* Fixed Mobile Navigation - Always visible at bottom on mobile */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-30">
+        <div className="flex justify-around items-center h-16">
+          <button 
+            className={`flex flex-col items-center justify-center w-full py-2 ${
+              activeTab === "chat" ? "text-primary" : "text-gray-500 dark:text-gray-400"
+            }`}
+            onClick={() => setActiveTab("chat")}
+          >
+            <span className="material-icons">chat</span>
+            <span className="text-xs mt-1">Chat</span>
+          </button>
+          
+          <button 
+            className={`flex flex-col items-center justify-center w-full py-2 ${
+              activeTab === "contacts" ? "text-primary" : "text-gray-500 dark:text-gray-400"
+            }`}
+            onClick={() => setActiveTab("contacts")}
+          >
+            <span className="material-icons">contacts</span>
+            <span className="text-xs mt-1">Contacts</span>
+          </button>
+          
+          <button 
+            className="flex flex-col items-center justify-center w-full py-0"
+            onClick={handleNewConversation}
+          >
+            <div className="h-12 w-12 bg-primary rounded-full flex items-center justify-center text-white shadow-md -mt-5">
+              <span className="material-icons">add</span>
+            </div>
+            <span className="text-xs mt-1">New</span>
+          </button>
+          
+          <button 
+            className={`flex flex-col items-center justify-center w-full py-2 ${
+              activeTab === "calendar" ? "text-primary" : "text-gray-500 dark:text-gray-400"
+            }`}
+            onClick={() => setActiveTab("calendar")}
+          >
+            <span className="material-icons">calendar_month</span>
+            <span className="text-xs mt-1">Calendar</span>
+          </button>
+          
+          <button 
+            className={`flex flex-col items-center justify-center w-full py-2 ${
+              activeTab === "tasks" ? "text-primary" : "text-gray-500 dark:text-gray-400"
+            }`}
+            onClick={() => setActiveTab("tasks")}
+          >
+            <span className="material-icons">task</span>
+            <span className="text-xs mt-1">Tasks</span>
+          </button>
         </div>
       </div>
     </div>
