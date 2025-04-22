@@ -1,0 +1,59 @@
+/* Custom styling for mobile interfaces */
+
+/* Hide scrollbars but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Improved touch targets for mobile */
+@media (max-width: 640px) {
+  button, 
+  a {
+    touch-action: manipulation;
+  }
+  
+  /* Prevent text selection during touch interactions */
+  .prevent-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* Added bottom spacing for content to account for mobile navigation */
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Custom bottom sheet animation */
+.sheet-appear {
+  transform: translateY(100%);
+}
+
+.sheet-appear-active {
+  transform: translateY(0);
+  transition: transform 300ms ease-out;
+}
+
+/* Base mobile styling overrides */
+@media (max-width: 640px) {
+  .mobile-full-height {
+    height: 100vh;
+    height: -webkit-fill-available;
+  }
+}
