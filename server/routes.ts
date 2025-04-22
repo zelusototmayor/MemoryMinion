@@ -6,10 +6,14 @@ import {
   insertConversationSchema, 
   insertMessageSchema, 
   insertContactLinkSchema,
-  type ContactWithMentionCount 
+  insertCalendarEventSchema,
+  insertTaskSchema,
+  type ContactWithMentionCount,
+  type CalendarEvent,
+  type Task
 } from "@shared/schema";
 import { storage } from "./storage";
-import { transcribeAudio, processMessage, detectContacts, generateConversationTitle } from "./openai";
+import { transcribeAudio, processMessage, detectContacts, detectCalendarEvents, detectTasks, generateConversationTitle } from "./openai";
 import multer from "multer";
 import { setupAuth } from "./auth";
 
@@ -163,14 +167,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           content: aiContent
         });
         
-        // Detect and process contacts in user message
-        const { potentialContacts } = await detectContacts(content);
+        // Detect and process contacts, calendar events, and tasks in user message
+        const [{ potentialContacts }, { events }, { tasks }] = await Promise.all([
+          detectContacts(content),
+          detectCalendarEvents(content),
+          detectTasks(content)
+        ]);
         
-        // Return detected contacts for frontend to handle
+        // Return detected entities for frontend to handle
         return res.status(201).json({ 
           message, 
           aiResponse, 
-          potentialContacts 
+          potentialContacts,
+          events,
+          tasks
         });
       }
       
@@ -416,6 +426,301 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching conversation contacts:", error);
       return res.status(500).json({ message: "Failed to fetch conversation contacts" });
+    }
+  });
+
+  // Calendar Event Routes
+  app.get("/api/calendar", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      
+      // Check for date range parameters
+      if (req.query.start && req.query.end) {
+        const startDate = new Date(req.query.start as string);
+        const endDate = new Date(req.query.end as string);
+        
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          return res.status(400).json({ message: "Invalid date range parameters" });
+        }
+        
+        const events = await storage.getCalendarEventsByTimeRange(userId, startDate, endDate);
+        return res.json({ events });
+      }
+      
+      // No date range, return all events
+      const events = await storage.getCalendarEventsForUser(userId);
+      return res.json({ events });
+    } catch (error) {
+      console.error("Error fetching calendar events:", error);
+      return res.status(500).json({ message: "Failed to fetch calendar events" });
+    }
+  });
+  
+  app.get("/api/calendar/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid event ID" });
+      }
+      
+      const event = await storage.getCalendarEventById(id);
+      
+      if (!event) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      // Verify the event belongs to the user
+      const userId = (req.user as Express.User).id;
+      if (event.user_id !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      return res.json({ event });
+    } catch (error) {
+      console.error("Error fetching calendar event:", error);
+      return res.status(500).json({ message: "Failed to fetch calendar event" });
+    }
+  });
+  
+  app.post("/api/calendar", isAuthenticated, zValidator("body", insertCalendarEventSchema), async (req: Request, res: Response) => {
+    try {
+      // Ensure user_id matches the authenticated user
+      const userId = (req.user as Express.User).id;
+      const event = await storage.createCalendarEvent({
+        ...req.body,
+        user_id: userId
+      });
+      return res.status(201).json({ event });
+    } catch (error) {
+      console.error("Error creating calendar event:", error);
+      return res.status(500).json({ message: "Failed to create calendar event" });
+    }
+  });
+  
+  app.put("/api/calendar/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid event ID" });
+      }
+      
+      // Check if the event exists and belongs to the user
+      const existingEvent = await storage.getCalendarEventById(id);
+      if (!existingEvent) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const userId = (req.user as Express.User).id;
+      if (existingEvent.user_id !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Update the event
+      const updatedEvent = await storage.updateCalendarEvent(id, req.body);
+      return res.json({ event: updatedEvent });
+    } catch (error) {
+      console.error("Error updating calendar event:", error);
+      return res.status(500).json({ message: "Failed to update calendar event" });
+    }
+  });
+  
+  app.delete("/api/calendar/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid event ID" });
+      }
+      
+      // Check if the event exists and belongs to the user
+      const existingEvent = await storage.getCalendarEventById(id);
+      if (!existingEvent) {
+        return res.status(404).json({ message: "Event not found" });
+      }
+      
+      const userId = (req.user as Express.User).id;
+      if (existingEvent.user_id !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Delete the event
+      const success = await storage.deleteCalendarEvent(id);
+      if (success) {
+        return res.status(200).json({ message: "Event deleted successfully" });
+      } else {
+        return res.status(500).json({ message: "Failed to delete event" });
+      }
+    } catch (error) {
+      console.error("Error deleting calendar event:", error);
+      return res.status(500).json({ message: "Failed to delete calendar event" });
+    }
+  });
+  
+  // Task Routes
+  app.get("/api/tasks", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const userId = (req.user as Express.User).id;
+      
+      // Handle different filter options
+      const filter = req.query.filter as string;
+      
+      if (filter === "pending") {
+        const tasks = await storage.getPendingTasksForUser(userId);
+        return res.json({ tasks });
+      } else if (filter === "completed") {
+        const tasks = await storage.getCompletedTasksForUser(userId);
+        return res.json({ tasks });
+      } else if (req.query.start && req.query.end) {
+        // Filter by due date range
+        const startDate = new Date(req.query.start as string);
+        const endDate = new Date(req.query.end as string);
+        
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          return res.status(400).json({ message: "Invalid date range parameters" });
+        }
+        
+        const tasks = await storage.getTasksByDueDate(userId, startDate, endDate);
+        return res.json({ tasks });
+      }
+      
+      // No filters, return all tasks
+      const tasks = await storage.getTasksForUser(userId);
+      return res.json({ tasks });
+    } catch (error) {
+      console.error("Error fetching tasks:", error);
+      return res.status(500).json({ message: "Failed to fetch tasks" });
+    }
+  });
+  
+  app.get("/api/tasks/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid task ID" });
+      }
+      
+      const task = await storage.getTaskById(id);
+      
+      if (!task) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      // Verify the task belongs to the user
+      const userId = (req.user as Express.User).id;
+      if (task.user_id !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      return res.json({ task });
+    } catch (error) {
+      console.error("Error fetching task:", error);
+      return res.status(500).json({ message: "Failed to fetch task" });
+    }
+  });
+  
+  app.post("/api/tasks", isAuthenticated, zValidator("body", insertTaskSchema), async (req: Request, res: Response) => {
+    try {
+      // Ensure user_id matches the authenticated user
+      const userId = (req.user as Express.User).id;
+      const task = await storage.createTask({
+        ...req.body,
+        user_id: userId
+      });
+      return res.status(201).json({ task });
+    } catch (error) {
+      console.error("Error creating task:", error);
+      return res.status(500).json({ message: "Failed to create task" });
+    }
+  });
+  
+  app.put("/api/tasks/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid task ID" });
+      }
+      
+      // Check if the task exists and belongs to the user
+      const existingTask = await storage.getTaskById(id);
+      if (!existingTask) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      const userId = (req.user as Express.User).id;
+      if (existingTask.user_id !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Update the task
+      const updatedTask = await storage.updateTask(id, req.body);
+      return res.json({ task: updatedTask });
+    } catch (error) {
+      console.error("Error updating task:", error);
+      return res.status(500).json({ message: "Failed to update task" });
+    }
+  });
+  
+  app.post("/api/tasks/:id/complete", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid task ID" });
+      }
+      
+      // Check if the task exists and belongs to the user
+      const existingTask = await storage.getTaskById(id);
+      if (!existingTask) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      const userId = (req.user as Express.User).id;
+      if (existingTask.user_id !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Mark the task as completed
+      const completedTask = await storage.completeTask(id);
+      return res.json({ task: completedTask });
+    } catch (error) {
+      console.error("Error completing task:", error);
+      return res.status(500).json({ message: "Failed to complete task" });
+    }
+  });
+  
+  app.delete("/api/tasks/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid task ID" });
+      }
+      
+      // Check if the task exists and belongs to the user
+      const existingTask = await storage.getTaskById(id);
+      if (!existingTask) {
+        return res.status(404).json({ message: "Task not found" });
+      }
+      
+      const userId = (req.user as Express.User).id;
+      if (existingTask.user_id !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Delete the task
+      const success = await storage.deleteTask(id);
+      if (success) {
+        return res.status(200).json({ message: "Task deleted successfully" });
+      } else {
+        return res.status(500).json({ message: "Failed to delete task" });
+      }
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      return res.status(500).json({ message: "Failed to delete task" });
     }
   });
 

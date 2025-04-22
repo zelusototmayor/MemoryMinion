@@ -388,6 +388,128 @@ export class DatabaseStorage implements IStorage {
     // Sort by mention count
     return result.sort((a, b) => b.mentionCount - a.mentionCount);
   }
+
+  // Calendar operations
+  async getCalendarEventsForUser(userId: number): Promise<CalendarEvent[]> {
+    return await db.select().from(calendarEvents)
+      .where(eq(calendarEvents.user_id, userId))
+      .orderBy(asc(calendarEvents.start_time));
+  }
+
+  async getCalendarEventById(id: number): Promise<CalendarEvent | undefined> {
+    const result = await db.select().from(calendarEvents).where(eq(calendarEvents.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async getCalendarEventsByTimeRange(userId: number, startDate: Date, endDate: Date): Promise<CalendarEvent[]> {
+    return await db.select().from(calendarEvents)
+      .where(
+        and(
+          eq(calendarEvents.user_id, userId),
+          gte(calendarEvents.start_time, startDate),
+          lte(calendarEvents.start_time, endDate)
+        )
+      )
+      .orderBy(asc(calendarEvents.start_time));
+  }
+
+  async createCalendarEvent(event: InsertCalendarEvent): Promise<CalendarEvent> {
+    const result = await db.insert(calendarEvents).values(event).returning();
+    return result[0];
+  }
+
+  async updateCalendarEvent(id: number, eventUpdate: Partial<CalendarEvent>): Promise<CalendarEvent | undefined> {
+    const result = await db.update(calendarEvents)
+      .set(eventUpdate)
+      .where(eq(calendarEvents.id, id))
+      .returning();
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async deleteCalendarEvent(id: number): Promise<boolean> {
+    const result = await db.delete(calendarEvents)
+      .where(eq(calendarEvents.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  // Task operations
+  async getTasksForUser(userId: number): Promise<Task[]> {
+    return await db.select().from(tasks)
+      .where(eq(tasks.user_id, userId))
+      .orderBy(asc(tasks.due_date));
+  }
+
+  async getPendingTasksForUser(userId: number): Promise<Task[]> {
+    return await db.select().from(tasks)
+      .where(
+        and(
+          eq(tasks.user_id, userId),
+          eq(tasks.completed, false)
+        )
+      )
+      .orderBy(asc(tasks.due_date));
+  }
+
+  async getCompletedTasksForUser(userId: number): Promise<Task[]> {
+    return await db.select().from(tasks)
+      .where(
+        and(
+          eq(tasks.user_id, userId),
+          eq(tasks.completed, true)
+        )
+      )
+      .orderBy(desc(tasks.completed_at));
+  }
+
+  async getTasksByDueDate(userId: number, startDate: Date, endDate: Date): Promise<Task[]> {
+    return await db.select().from(tasks)
+      .where(
+        and(
+          eq(tasks.user_id, userId),
+          gte(tasks.due_date, startDate),
+          lte(tasks.due_date, endDate)
+        )
+      )
+      .orderBy(asc(tasks.due_date));
+  }
+
+  async getTaskById(id: number): Promise<Task | undefined> {
+    const result = await db.select().from(tasks).where(eq(tasks.id, id));
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async createTask(task: InsertTask): Promise<Task> {
+    const result = await db.insert(tasks).values(task).returning();
+    return result[0];
+  }
+
+  async updateTask(id: number, taskUpdate: Partial<Task>): Promise<Task | undefined> {
+    const result = await db.update(tasks)
+      .set(taskUpdate)
+      .where(eq(tasks.id, id))
+      .returning();
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async completeTask(id: number): Promise<Task | undefined> {
+    const now = new Date();
+    const result = await db.update(tasks)
+      .set({ 
+        completed: true,
+        completed_at: now
+      })
+      .where(eq(tasks.id, id))
+      .returning();
+    return result.length > 0 ? result[0] : undefined;
+  }
+
+  async deleteTask(id: number): Promise<boolean> {
+    const result = await db.delete(tasks)
+      .where(eq(tasks.id, id))
+      .returning();
+    return result.length > 0;
+  }
 }
 
 export const storage = new DatabaseStorage();

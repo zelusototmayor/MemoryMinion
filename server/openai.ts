@@ -154,6 +154,107 @@ export async function detectContacts(content: string): Promise<{
   }
 }
 
+// Detect calendar events in a message
+export async function detectCalendarEvents(content: string): Promise<{
+  events: Array<{
+    title: string,
+    description: string,
+    start_time: string,
+    end_time?: string,
+    location?: string,
+    participants?: string[]
+  }>
+}> {
+  try {
+    const prompt = `
+      Extract any calendar events or meetings mentioned in the following text. Convert any relative dates/times to absolute dates/times using today's date: ${new Date().toISOString().split('T')[0]}.
+      
+      Text: "${content}"
+      
+      Respond with a JSON object in this format:
+      {
+        "events": [
+          {
+            "title": "Event title",
+            "description": "Brief description of the event",
+            "start_time": "YYYY-MM-DDTHH:MM:SS" (ISO format date and time),
+            "end_time": "YYYY-MM-DDTHH:MM:SS" (optional, ISO format date and time),
+            "location": "Location of the event" (optional),
+            "participants": ["Person 1", "Person 2"] (optional array of participants)
+          }
+        ]
+      }
+      
+      If no events are found, return an empty array for events.
+      When finding relative dates like "tomorrow" or "next Tuesday", convert them to actual dates.
+      If no specific time is mentioned, use 09:00:00 as the default start time.
+      If no end time is specified but a duration is implied, calculate the end time.
+      If no duration or end time is specified, assume a 1-hour duration.
+    `;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+    });
+
+    const result = JSON.parse(response.choices[0].message.content || '{"events": []}');
+    return result;
+  } catch (error) {
+    console.error("Error detecting calendar events:", error);
+    return { events: [] };
+  }
+}
+
+// Detect tasks in a message
+export async function detectTasks(content: string): Promise<{
+  tasks: Array<{
+    title: string,
+    description: string,
+    due_date?: string,
+    priority?: 'low' | 'medium' | 'high',
+    assignee?: string
+  }>
+}> {
+  try {
+    const prompt = `
+      Extract any tasks, to-dos, or action items mentioned in the following text. Convert any relative dates to absolute dates using today's date: ${new Date().toISOString().split('T')[0]}.
+      
+      Text: "${content}"
+      
+      Respond with a JSON object in this format:
+      {
+        "tasks": [
+          {
+            "title": "Task title",
+            "description": "Brief description of the task",
+            "due_date": "YYYY-MM-DD" (optional),
+            "priority": "low", "medium", or "high" (optional),
+            "assignee": "Person's name" (optional)
+          }
+        ]
+      }
+      
+      If no tasks are found, return an empty array for tasks.
+      When finding relative dates like "tomorrow" or "next Tuesday", convert them to actual dates.
+      Infer priority based on language used (e.g., "urgent" = high, "whenever you can" = low).
+      Look for specific assignees mentioned (e.g., "John should submit the report").
+    `;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+    });
+
+    const result = JSON.parse(response.choices[0].message.content || '{"tasks": []}');
+    return result;
+  } catch (error) {
+    console.error("Error detecting tasks:", error);
+    return { tasks: [] };
+  }
+}
+
 // Generate a title for a conversation based on messages
 export async function generateConversationTitle(messages: Array<{ sender: string, content: string }>): Promise<string> {
   if (messages.length === 0) return "New Conversation";
