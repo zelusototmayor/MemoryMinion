@@ -4,6 +4,8 @@ import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home";
 import ContactDetailPage from "@/pages/contact-detail";
 import TimelinePage from "@/pages/timeline";
+import CalendarPage from "@/pages/calendar";
+import TasksPage from "@/pages/tasks";
 
 function Router() {
   // Skip authentication check for now
@@ -13,6 +15,8 @@ function Router() {
       <Route path="/" component={HomePage} />
       <Route path="/contact/:id" component={ContactDetailPage} />
       <Route path="/timeline" component={TimelinePage} />
+      <Route path="/calendar" component={CalendarPage} />
+      <Route path="/tasks" component={TasksPage} />
       <Route component={NotFound} />
     </Switch>
   );

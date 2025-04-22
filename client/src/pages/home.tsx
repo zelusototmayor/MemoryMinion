@@ -11,7 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function HomePage() {
-  const [activeTab, setActiveTab] = useState<"chat" | "contacts" | "timeline">("chat");
+  const [activeTab, setActiveTab] = useState<"chat" | "contacts" | "timeline" | "calendar" | "tasks">("chat");
   const [showSidebar, setShowSidebar] = useState(false);
   const { user } = useAuth();
   const queryClient = useQueryClient();
