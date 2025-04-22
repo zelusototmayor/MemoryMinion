@@ -1,4 +1,4 @@
-import { pgTable, text, serial, uuid, timestamp, varchar, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, uuid, timestamp, varchar, boolean, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -111,3 +111,49 @@ export type PotentialContact = {
   name: string;
   contextInfo?: string;
 };
+
+// Calendar Events table
+export const calendarEvents = pgTable("calendar_events", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  start_time: timestamp("start_time").notNull(),
+  end_time: timestamp("end_time"),
+  all_day: boolean("all_day").default(false),
+  message_id: integer("message_id").references(() => messages.id),
+  conversation_id: integer("conversation_id").references(() => conversations.id),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertCalendarEventSchema = createInsertSchema(calendarEvents).omit({
+  id: true,
+  created_at: true,
+});
+
+export type InsertCalendarEvent = z.infer<typeof insertCalendarEventSchema>;
+export type CalendarEvent = typeof calendarEvents.$inferSelect;
+
+// Tasks table
+export const tasks = pgTable("tasks", {
+  id: serial("id").primaryKey(),
+  user_id: integer("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  due_date: timestamp("due_date"),
+  completed: boolean("completed").default(false),
+  completed_at: timestamp("completed_at"),
+  message_id: integer("message_id").references(() => messages.id),
+  conversation_id: integer("conversation_id").references(() => conversations.id),
+  assigned_to: text("assigned_to"),
+  created_at: timestamp("created_at").defaultNow(),
+});
+
+export const insertTaskSchema = createInsertSchema(tasks).omit({
+  id: true,
+  created_at: true,
+  completed_at: true,
+});
+
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type Task = typeof tasks.$inferSelect;

@@ -4,6 +4,8 @@ import {
   conversations, type Conversation, type InsertConversation,
   messages, type Message, type InsertMessage,
   contactLinks, type ContactLink, type InsertContactLink,
+  calendarEvents, type CalendarEvent, type InsertCalendarEvent,
+  tasks, type Task, type InsertTask,
   type UserWithoutPassword,
   type ConversationWithLastMessage,
   type ContactWithMentionCount,
@@ -11,7 +13,7 @@ import {
   type ContactLinkWithName
 } from "@shared/schema";
 import { db, pool } from "./db";
-import { eq, and, desc, sql, like, ilike, asc } from "drizzle-orm";
+import { eq, and, desc, sql, like, ilike, asc, gte, lte, isNull } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 
@@ -44,6 +46,25 @@ export interface IStorage {
   createContactLink(contactLink: InsertContactLink): Promise<ContactLink>;
   getContactLinksForMessage(messageId: number): Promise<ContactLink[]>;
   getContactLinksForContact(contactId: number): Promise<ContactLink[]>;
+  
+  // Calendar operations
+  getCalendarEventsForUser(userId: number): Promise<CalendarEvent[]>;
+  getCalendarEventById(id: number): Promise<CalendarEvent | undefined>;
+  getCalendarEventsByTimeRange(userId: number, startDate: Date, endDate: Date): Promise<CalendarEvent[]>;
+  createCalendarEvent(event: InsertCalendarEvent): Promise<CalendarEvent>;
+  updateCalendarEvent(id: number, event: Partial<CalendarEvent>): Promise<CalendarEvent | undefined>;
+  deleteCalendarEvent(id: number): Promise<boolean>;
+  
+  // Task operations
+  getTasksForUser(userId: number): Promise<Task[]>;
+  getPendingTasksForUser(userId: number): Promise<Task[]>;
+  getCompletedTasksForUser(userId: number): Promise<Task[]>;
+  getTasksByDueDate(userId: number, startDate: Date, endDate: Date): Promise<Task[]>;
+  getTaskById(id: number): Promise<Task | undefined>;
+  createTask(task: InsertTask): Promise<Task>;
+  updateTask(id: number, task: Partial<Task>): Promise<Task | undefined>;
+  completeTask(id: number): Promise<Task | undefined>;
+  deleteTask(id: number): Promise<boolean>;
   
   // Combined operations
   getFrequentContactsForUser(userId: number, limit?: number): Promise<ContactWithMentionCount[]>;
