@@ -359,21 +359,29 @@ export function ActiveConversation() {
   return (
     <div className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900">
       {/* Chat header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center">
-          <h2 className="font-medium text-lg text-gray-900 dark:text-white">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
+        <div className="flex items-center overflow-hidden">
+          <h2 className="font-medium text-lg text-gray-900 dark:text-white truncate max-w-[200px] sm:max-w-none">
             {data.conversation.title}
           </h2>
         </div>
-        <div>
-          <button className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
-            <span className="material-icons">more_vert</span>
+        <div className="flex-shrink-0">
+          <button 
+            className="h-8 w-8 sm:h-9 sm:w-auto sm:px-3 rounded-full flex items-center justify-center bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
+            title="Generate Title"
+            onClick={() => {
+              // This would call a mutation to generate a title
+              // We'll implement this feature later
+            }}
+          >
+            <span className="material-icons text-sm">edit</span>
+            <span className="hidden sm:inline ml-1">Rename</span>
           </button>
         </div>
       </header>
 
       {/* Chat messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-3 sm:space-y-4 pb-safe">
         {Object.entries(messageGroups).map(([date, messages]) => (
           <div key={date}>
             {/* Date separator */}
@@ -448,7 +456,7 @@ export function ActiveConversation() {
       </div>
 
       {/* Chat input - ChatGPT style */}
-      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+      <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-2 sm:p-4 pb-safe">
         <div className="max-w-3xl mx-auto">
           <motion.div 
             className="relative border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm bg-white dark:bg-gray-800"
@@ -462,7 +470,7 @@ export function ActiveConversation() {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Message RevocAI..."
-                className="w-full resize-none px-4 py-3 max-h-[200px] min-h-[56px] rounded-xl pr-20 focus:outline-none focus:ring-1 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                className="w-full resize-none px-3 sm:px-4 py-2 sm:py-3 max-h-[150px] min-h-[48px] sm:min-h-[56px] rounded-xl pr-[70px] sm:pr-20 focus:outline-none focus:ring-1 focus:ring-primary bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm sm:text-base"
                 disabled={transcriptionStatus !== "idle" || isRecording || sendMessageMutation.isPending}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
@@ -474,18 +482,18 @@ export function ActiveConversation() {
               />
 
               {/* Action buttons positioned at the bottom right of textarea */}
-              <div className="absolute bottom-2 right-2 flex items-center">
+              <div className="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 flex items-center">
                 {/* Voice recorder button */}
                 <Button
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className="h-9 w-9 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 mr-1"
+                  className="h-7 w-7 sm:h-9 sm:w-9 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 mr-1"
                   onClick={startRecording}
                   disabled={transcriptionStatus !== "idle" || isRecording || sendMessageMutation.isPending}
                   title="Record voice message"
                 >
-                  <span className="material-icons">mic</span>
+                  <span className="material-icons text-sm sm:text-base">mic</span>
                 </Button>
 
                 {/* Send button - shows when there's text or in confirmation mode */}
@@ -493,31 +501,31 @@ export function ActiveConversation() {
                   <Button
                     type="button"
                     size="icon"
-                    className="h-9 w-9 rounded-md bg-primary text-white"
+                    className="h-7 w-7 sm:h-9 sm:w-9 rounded-md bg-primary text-white"
                     onClick={handleSendMessage}
                     disabled={sendMessageMutation.isPending}
                     title="Send message"
                   >
-                    <span className="material-icons">send</span>
+                    <span className="material-icons text-sm sm:text-base">send</span>
                   </Button>
                 )}
 
                 {/* Recording indicator - only show while recording */}
                 {isRecording && (
                   <div className="flex items-center">
-                    <span className="text-red-500 animate-pulse mr-2">●</span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400 mr-2">
+                    <span className="text-red-500 animate-pulse mr-1 sm:mr-2">●</span>
+                    <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mr-1 sm:mr-2">
                       {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
                     </span>
                     <Button
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="h-9 w-9 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                      className="h-7 w-7 sm:h-9 sm:w-9 rounded-md text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                       onClick={stopRecording}
                       title="Stop recording"
                     >
-                      <span className="material-icons">stop</span>
+                      <span className="material-icons text-sm sm:text-base">stop</span>
                     </Button>
                   </div>
                 )}
