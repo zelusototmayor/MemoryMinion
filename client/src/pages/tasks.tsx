@@ -122,21 +122,7 @@ export default function TasksPage() {
     return format(date, "EEE, MMM d, yyyy");
   };
   
-  // Get priority badge color
-  const getPriorityColor = (priority: string | null) => {
-    if (!priority) return "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
-    
-    switch (priority.toLowerCase()) {
-      case "high":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-      case "medium":
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200";
-      case "low":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-      default:
-        return "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
-    }
-  };
+  
   
   // Check if a task is overdue
   const isTaskOverdue = (task: Task) => {
@@ -173,15 +159,10 @@ export default function TasksPage() {
                   {formatDate(task.due_date)}
                 </Badge>
               )}
-              {task.priority && (
-                <Badge className={getPriorityColor(task.priority)}>
-                  {task.priority}
-                </Badge>
-              )}
-              {task.assignee && (
+              {task.assigned_to && (
                 <Badge variant="outline">
                   <span className="material-icons text-sm mr-1">person</span>
-                  {task.assignee}
+                  {task.assigned_to}
                 </Badge>
               )}
             </div>

@@ -1,6 +1,8 @@
 import { useLocation } from "wouter";
 import ContactsPage from "./contacts";
 import TimelinePage from "./timeline";
+import CalendarPage from "./calendar";
+import TasksPage from "./tasks";
 import { useState } from "react";
 import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
@@ -91,6 +93,28 @@ export default function HomePage() {
                 <span className="material-icons text-sm mr-1">timeline</span>
                 Timeline
               </button>
+              <button 
+                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                  activeTab === "calendar" 
+                    ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" 
+                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                }`}
+                onClick={() => setActiveTab("calendar")}
+              >
+                <span className="material-icons text-sm mr-1">calendar_month</span>
+                Calendar
+              </button>
+              <button 
+                className={`px-3 py-2 text-sm font-medium rounded-md ${
+                  activeTab === "tasks" 
+                    ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white" 
+                    : "text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                }`}
+                onClick={() => setActiveTab("tasks")}
+              >
+                <span className="material-icons text-sm mr-1">task</span>
+                Tasks
+              </button>
             </div>
             
             <div>
@@ -122,8 +146,12 @@ export default function HomePage() {
             <ActiveConversation />
           ) : activeTab === "contacts" ? (
             <ContactsPage />
-          ) : (
+          ) : activeTab === "timeline" ? (
             <TimelinePage />
+          ) : activeTab === "calendar" ? (
+            <CalendarPage />
+          ) : (
+            <TasksPage />
           )}
         </div>
       </div>

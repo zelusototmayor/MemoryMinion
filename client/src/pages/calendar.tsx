@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { CalendarEvent } from "@shared/schema";
 import Header from "@/components/header";
 import { useState } from "react";
@@ -11,6 +11,7 @@ import { format, isSameDay, parseISO, isToday, addMonths, startOfMonth } from "d
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import type { DayProps } from "react-day-picker";
 
 export default function CalendarPage() {
   const { user } = useAuth();
@@ -37,30 +38,34 @@ export default function CalendarPage() {
   
   // Get events for the selected date
   const selectedDateEvents = events.filter(event => 
-    selectedDate && isSameDay(parseISO(event.start_time), selectedDate)
+    selectedDate && isSameDay(new Date(event.start_time), selectedDate)
   );
   
   // Format event time to display
-  const formatEventTime = (dateString: string) => {
-    return format(parseISO(dateString), 'h:mm a');
+  const formatEventTime = (dateString: Date | string) => {
+    return format(typeof dateString === 'string' ? parseISO(dateString) : dateString, 'h:mm a');
   };
   
   // Generate dates with events for the calendar
   const datesWithEvents = events.reduce((acc: Record<string, number>, event) => {
-    const dateKey = format(parseISO(event.start_time), 'yyyy-MM-dd');
+    const date = new Date(event.start_time);
+    const dateKey = format(date, 'yyyy-MM-dd');
     acc[dateKey] = (acc[dateKey] || 0) + 1;
     return acc;
   }, {});
   
   // Calendar day renderer to show event indicators
-  const renderDay = (day: Date) => {
-    const dateKey = format(day, 'yyyy-MM-dd');
+  const renderDay = (props: DayProps) => {
+    const { date, ...otherProps } = props;
+    if (!date) return <div {...otherProps} />;
+    
+    const dateKey = format(date, 'yyyy-MM-dd');
     const hasEvents = datesWithEvents[dateKey] > 0;
     
     return (
-      <div className="relative">
-        <div className={`${isToday(day) ? 'bg-primary/20 text-primary font-bold' : ''} w-full h-full flex items-center justify-center`}>
-          {day.getDate()}
+      <div {...otherProps} className="relative">
+        <div className={`${isToday(date) ? 'bg-primary/20 text-primary font-bold' : ''} w-full h-full flex items-center justify-center`}>
+          {date.getDate()}
         </div>
         {hasEvents && (
           <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2">
@@ -122,7 +127,7 @@ export default function CalendarPage() {
             <div className="md:col-span-1">
               <Card>
                 <CardContent className="pt-6">
-                  <Calendar
+                  <CalendarComponent
                     mode="single"
                     selected={selectedDate}
                     onSelect={setSelectedDate}
@@ -173,7 +178,6 @@ export default function CalendarPage() {
                               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                                 {formatEventTime(event.start_time)}
                                 {event.end_time && ` - ${formatEventTime(event.end_time)}`}
-                                {event.location && ` • ${event.location}`}
                               </p>
                             </div>
                             <div className="flex space-x-2">
