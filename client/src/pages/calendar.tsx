@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,8 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 
 // Add custom CSS for the calendar to show dots under days with events
 import "@/styles/calendar.css";
@@ -23,36 +21,6 @@ export default function CalendarPage() {
   const [, navigate] = useLocation();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
-  
-  // Sample data mutation
-  const sampleDataMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/sample-data", {});
-      if (!response.ok) {
-        throw new Error("Failed to load sample data");
-      }
-      return response.json();
-    },
-    onSuccess: (data) => {
-      // Invalidate calendar and tasks queries
-      queryClient.invalidateQueries({ queryKey: ["/api/calendar"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
-      
-      toast({
-        title: "Sample data loaded",
-        description: `Added ${data.events.length} calendar events and ${data.tasks.length} tasks.`,
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to load sample data: " + error.message,
-        variant: "destructive",
-      });
-    },
-  });
   
   // Format the current month for API query
   const startOfCurrentMonth = startOfMonth(currentMonth);
@@ -106,26 +74,6 @@ export default function CalendarPage() {
             Calendar
           </h1>
           <div className="flex space-x-2">
-            {events.length === 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => sampleDataMutation.mutate()}
-                disabled={sampleDataMutation.isPending}
-              >
-                {sampleDataMutation.isPending ? (
-                  <>
-                    <span className="material-icons text-sm animate-spin mr-1">sync</span>
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    <span className="material-icons text-sm mr-1">add_circle</span>
-                    Add Sample Data
-                  </>
-                )}
-              </Button>
-            )}
             <Button
               variant="outline"
               size="sm"
