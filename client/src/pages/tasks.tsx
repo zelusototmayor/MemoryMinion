@@ -110,10 +110,10 @@ export default function TasksPage() {
   });
   
   // Format date for display
-  const formatDate = (dateString: string | null) => {
+  const formatDate = (dateString: Date | string | null) => {
     if (!dateString) return "No due date";
     
-    const date = parseISO(dateString);
+    const date = typeof dateString === 'string' ? parseISO(dateString) : dateString;
     
     if (isToday(date)) return "Today";
     if (isYesterday(date)) return "Yesterday";
@@ -122,13 +122,11 @@ export default function TasksPage() {
     return format(date, "EEE, MMM d, yyyy");
   };
   
-  
-  
   // Check if a task is overdue
   const isTaskOverdue = (task: Task) => {
     if (!task.due_date) return false;
     
-    const dueDate = parseISO(task.due_date);
+    const dueDate = new Date(task.due_date);
     return !task.completed && isBefore(dueDate, new Date());
   };
   
@@ -144,7 +142,7 @@ export default function TasksPage() {
             <Checkbox 
               id={`task-${task.id}`}
               className="mt-1"
-              checked={task.completed}
+              checked={task.completed || false}
               onCheckedChange={() => completeTaskMutation.mutate(task.id)}
             />
           )}

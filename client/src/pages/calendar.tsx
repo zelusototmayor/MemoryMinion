@@ -6,12 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { CalendarEvent } from "@shared/schema";
 import Header from "@/components/header";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format, isSameDay, parseISO, isToday, addMonths, startOfMonth } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { DayProps } from "react-day-picker";
+import { cn } from "@/lib/utils";
+
+// Add custom CSS for the calendar to show dots under days with events
+import "@/styles/calendar.css";
 
 export default function CalendarPage() {
   const { user } = useAuth();
@@ -54,26 +57,11 @@ export default function CalendarPage() {
     return acc;
   }, {});
   
-  // Calendar day renderer to show event indicators
-  const renderDay = (props: DayProps) => {
-    const { date, ...otherProps } = props;
-    if (!date) return <div {...otherProps} />;
-    
-    const dateKey = format(date, 'yyyy-MM-dd');
-    const hasEvents = datesWithEvents[dateKey] > 0;
-    
-    return (
-      <div {...otherProps} className="relative">
-        <div className={`${isToday(date) ? 'bg-primary/20 text-primary font-bold' : ''} w-full h-full flex items-center justify-center`}>
-          {date.getDate()}
-        </div>
-        {hasEvents && (
-          <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2">
-            <div className="h-1 w-1 rounded-full bg-primary"></div>
-          </div>
-        )}
-      </div>
-    );
+  // We'll use a different approach by creating a component to indicate events
+  // This removes the type error with the Day component since we're not directly using it
+  const hasDayWithEvent = (day: Date) => {
+    const dateKey = format(day, 'yyyy-MM-dd');
+    return datesWithEvents[dateKey] > 0;
   };
   
   return (
@@ -133,8 +121,12 @@ export default function CalendarPage() {
                     onSelect={setSelectedDate}
                     onMonthChange={setCurrentMonth}
                     className="rounded-md"
-                    components={{
-                      Day: renderDay
+                    modifiersClassNames={{
+                      today: "bg-primary/20 text-primary font-bold",
+                      selected: "bg-primary text-primary-foreground"
+                    }}
+                    modifiers={{
+                      hasEvent: Object.keys(datesWithEvents).map(dateStr => new Date(dateStr))
                     }}
                   />
                 </CardContent>
