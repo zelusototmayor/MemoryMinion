@@ -1,16 +1,31 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useMockAuth } from "@/hooks/use-mock-auth";
+import { useAuthQuery } from "@/hooks/use-auth-query";
 
 export default function Header() {
-  const { user, logout } = useMockAuth();
   const [showSearchBar, setShowSearchBar] = useState(false);
+  
+  // Default values in case auth system isn't ready
+  let user = null;
+  let logout = async () => {
+    console.log("Logout not available");
+  };
+  
+  try {
+    const auth = useAuthQuery();
+    user = auth.user;
+    logout = auth.logout;
+  } catch (error) {
+    console.log("Auth not available in header");
+  }
   
   const toggleSearchBar = () => {
     setShowSearchBar(!showSearchBar);
   };
   
-  const getInitials = (name: string) => {
+  const getInitials = (name: string = "") => {
+    if (!name) return "U";
     return name
       .split(' ')
       .map(part => part.charAt(0))
@@ -37,7 +52,7 @@ export default function Header() {
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center" aria-label="User menu">
                   <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center text-primary font-medium">
-                    {getInitials(user.displayName)}
+                    {getInitials(user?.displayName)}
                   </div>
                 </button>
               </DropdownMenuTrigger>
@@ -50,8 +65,21 @@ export default function Header() {
                   <span className="material-icons mr-2 text-sm">settings</span>
                   Settings
                 </DropdownMenuItem>
+                
+                {user?.role === 'admin' && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <Link href="/admin/users">
+                      <DropdownMenuItem>
+                        <span className="material-icons mr-2 text-sm">admin_panel_settings</span>
+                        User Management
+                      </DropdownMenuItem>
+                    </Link>
+                  </>
+                )}
+                
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout}>
+                <DropdownMenuItem onClick={() => logout()}>
                   <span className="material-icons mr-2 text-sm">logout</span>
                   Logout
                 </DropdownMenuItem>

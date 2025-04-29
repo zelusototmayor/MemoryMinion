@@ -16,6 +16,8 @@ import { storage } from "./storage";
 import { transcribeAudio, processMessage, detectContacts, detectCalendarEvents, detectTasks, generateConversationTitle } from "./openai";
 import multer from "multer";
 import { setupAuth } from "./auth";
+import { scrypt, randomBytes } from "crypto";
+import { promisify } from "util";
 
 // Set up multer for audio upload
 const upload = multer({
@@ -25,22 +27,19 @@ const upload = multer({
 
 // Middleware to check if user is authenticated
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
-  // For development, bypass authentication check and set a mock user
-  if (!req.user) {
-    req.user = {
-      id: 1,
-      email: "dev@example.com",
-      displayName: "Dev User",
-      created_at: new Date()
-    } as Express.User;
+  if (req.isAuthenticated()) {
+    return next();
   }
-  return next();
-  
-  // This is the production code:
-  // if (req.isAuthenticated()) {
-  //   return next();
-  // }
-  // return res.status(401).json({ message: "Not authenticated" });
+  return res.status(401).json({ message: "Not authenticated" });
+}
+
+// For beta testing, we'll allow all authenticated users to access admin features
+// In a production app, you'd want more sophisticated role management
+function isAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  return res.status(403).json({ message: "Forbidden - Admin access required" });
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -48,6 +47,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Set up authentication
   setupAuth(app);
+  
+  // Admin routes for user management
+  app.get("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const users = await storage.getAllUsers();
+      const usersWithoutPasswords = users.map(user => {
+        const { password, ...userWithoutPassword } = user;
+        return userWithoutPassword;
+      });
+      
+      return res.json({ users: usersWithoutPasswords });
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      return res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+  
+  app.post("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const { email, password, displayName } = req.body;
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "User with this email already exists" });
+      }
+      
+      // Hash password - use the same function from auth.ts
+      const scryptAsync = promisify(scrypt);
+      
+      const salt = randomBytes(16).toString("hex");
+      const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+      const hashedPassword = `${buf.toString("hex")}.${salt}`;
+      
+      // Create user
+      const user = await storage.createUser({
+        email,
+        password: hashedPassword,
+        displayName
+      });
+      
+      // Return user info without password
+      const { password: _, ...userWithoutPassword } = user;
+      return res.status(201).json({ user: userWithoutPassword });
+    } catch (error) {
+      console.error("Error creating user:", error);
+      return res.status(500).json({ message: "Failed to create user" });
+    }
+  });
   
   // Conversation routes - require authentication
   app.get("/api/conversations", isAuthenticated, async (req: Request, res: Response) => {
