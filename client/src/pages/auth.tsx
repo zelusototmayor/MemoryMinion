@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Redirect } from "wouter";
+import { useState, useEffect } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,8 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useAuthQuery } from "@/hooks/use-auth-query";
-import { Card, CardHeader, CardContent, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import { Loader2, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Login form schema
 const loginSchema = z.object({
@@ -28,26 +28,32 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function AuthPage() {
   const [activeTab, setActiveTab] = useState<string>("login");
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   
-  // Use try-catch to handle cases where useAuthQuery isn't available
-  let user = null;
-  let isLoading = false;
-  let login = async (credentials: any) => {
-    console.log("Login not available");
-  };
-  let register = async (credentials: any) => {
-    console.log("Register not available");
-  };
-  
-  try {
-    const auth = useAuthQuery();
-    user = auth.user;
-    isLoading = auth.isLoading;
-    login = auth.login;
-    register = auth.register;
-  } catch (error) {
-    console.log("Auth not available yet");
-  }
+  // Check if we're already logged in
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch("/api/auth/user");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.user) {
+            setIsAuthenticated(true);
+            window.location.href = "/";
+          }
+        }
+      } catch (error) {
+        console.error("Error checking auth:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkAuth();
+  }, []);
   
   // Login form
   const loginForm = useForm<LoginFormValues>({
@@ -68,29 +74,96 @@ export default function AuthPage() {
     },
   });
   
-  // Login handler
+  // Handle login form submission
   const onLoginSubmit = async (data: LoginFormValues) => {
+    setAuthError(null);
+    setIsSubmitting(true);
     try {
-      await login(data);
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Login failed");
+      }
+      
+      // Redirect will happen automatically because the server sets cookies
+      window.location.href = "/";
     } catch (error) {
       console.error("Login failed:", error);
-      // Error is handled in the login function
+      setAuthError(error instanceof Error ? error.message : "Login failed. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
-  // Registration handler
+  // Handle registration form submission
   const onRegisterSubmit = async (data: RegisterFormValues) => {
+    setAuthError(null);
+    setIsSubmitting(true);
     try {
-      await register(data);
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Registration failed");
+      }
+      
+      // Redirect will happen automatically because the server sets cookies
+      window.location.href = "/";
     } catch (error) {
       console.error("Registration failed:", error);
-      // Error is handled in the register function
+      setAuthError(error instanceof Error ? error.message : "Registration failed. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
-  // Redirect to home if already logged in
-  if (user) {
-    return <Redirect to="/" />;
+  // Display an error alert if we have an auth error
+  const renderAuthError = () => {
+    if (!authError) return null;
+    
+    return (
+      <Alert variant="destructive" className="mb-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>{authError}</AlertDescription>
+      </Alert>
+    );
+  };
+  
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // If already authenticated, we'll redirect in the useEffect
+  if (isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Redirecting to dashboard...</p>
+        </div>
+      </div>
+    );
   }
   
   return (
@@ -113,8 +186,9 @@ export default function AuthPage() {
               
               {/* Login tab */}
               <TabsContent value="login">
+                {renderAuthError()}
                 <Form {...loginForm}>
-                  <form onSubmit={loginForm.handleSubmit(onLoginSubmit)} className="space-y-4">
+                  <form onSubmit={loginForm.handleSubmit(data => onLoginSubmit(data))} className="space-y-4">
                     <FormField
                       control={loginForm.control}
                       name="email"
@@ -146,9 +220,9 @@ export default function AuthPage() {
                     <Button
                       type="submit"
                       className="w-full"
-                      disabled={loginForm.formState.isSubmitting}
+                      disabled={isSubmitting}
                     >
-                      {loginForm.formState.isSubmitting ? "Signing in..." : "Sign in"}
+                      {isSubmitting ? "Signing in..." : "Sign in"}
                     </Button>
                   </form>
                 </Form>
@@ -156,8 +230,9 @@ export default function AuthPage() {
               
               {/* Register tab */}
               <TabsContent value="register">
+                {renderAuthError()}
                 <Form {...registerForm}>
-                  <form onSubmit={registerForm.handleSubmit(onRegisterSubmit)} className="space-y-4">
+                  <form onSubmit={registerForm.handleSubmit(data => onRegisterSubmit(data))} className="space-y-4">
                     <FormField
                       control={registerForm.control}
                       name="displayName"
@@ -203,9 +278,9 @@ export default function AuthPage() {
                     <Button
                       type="submit"
                       className="w-full"
-                      disabled={registerForm.formState.isSubmitting}
+                      disabled={isSubmitting}
                     >
-                      {registerForm.formState.isSubmitting ? "Creating account..." : "Create account"}
+                      {isSubmitting ? "Creating account..." : "Create account"}
                     </Button>
                   </form>
                 </Form>
