@@ -5,7 +5,7 @@ import session from "express-session";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
-import { type User as SchemaUser } from "@shared/schema";
+import { User as SchemaUser } from "@shared/schema";
 
 // Define the User type for passport
 declare global {
@@ -15,6 +15,7 @@ declare global {
       email: string;
       password: string;
       displayName: string;
+      role: string;
       created_at: Date | null;
     }
   }
@@ -88,7 +89,7 @@ export function setupAuth(app: Express) {
 
   app.post("/api/auth/register", async (req, res, next) => {
     try {
-      const { email, password, displayName } = req.body;
+      const { email, password, displayName, role } = req.body;
       
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
@@ -99,11 +100,12 @@ export function setupAuth(app: Express) {
       // Hash password
       const hashedPassword = await hashPassword(password);
       
-      // Create user
+      // Create user with default role "user"
       const user = await storage.createUser({
         email,
         password: hashedPassword,
-        displayName
+        displayName,
+        role: role || "user"
       });
       
       // Log in the user

@@ -36,7 +36,7 @@ function isAuthenticated(req: Request, res: Response, next: NextFunction) {
 // For beta testing, we'll allow all authenticated users to access admin features
 // In a production app, you'd want more sophisticated role management
 function isAdmin(req: Request, res: Response, next: NextFunction) {
-  if (req.isAuthenticated()) {
+  if (req.isAuthenticated() && req.user.role === 'admin') {
     return next();
   }
   return res.status(403).json({ message: "Forbidden - Admin access required" });
@@ -66,7 +66,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
     try {
-      const { email, password, displayName } = req.body;
+      const { email, password, displayName, role } = req.body;
       
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
@@ -85,7 +85,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.createUser({
         email,
         password: hashedPassword,
-        displayName
+        displayName,
+        role: role || "user" // Default to "user" if role is not provided
       });
       
       // Return user info without password
