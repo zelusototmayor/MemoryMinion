@@ -13,18 +13,10 @@ import { Loader2 } from "lucide-react";
 
 // Protected route component
 function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType, path: string }) {
-  // Default values
-  let user = null;
-  let isLoading = false;
+  const auth = useAuthQuery();
+  const { user, isLoading } = auth;
   
-  try {
-    const auth = useAuthQuery();
-    user = auth.user;
-    isLoading = auth.isLoading;
-  } catch (error) {
-    console.error("Auth error:", error);
-    return <Redirect to="/auth" />;
-  }
+  console.log("ProtectedRoute - User:", user, "isLoading:", isLoading);
   
   if (isLoading) {
     return (
@@ -35,26 +27,20 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
   }
   
   if (!user) {
+    console.log("No user found, redirecting to /auth");
     return <Redirect to="/auth" />;
   }
   
+  console.log("User authenticated, rendering component");
   return <Component />;
 }
 
 // Admin role check
 function AdminRoute({ component: Component, ...rest }: { component: React.ComponentType, path: string }) {
-  // Default values
-  let user = null;
-  let isLoading = false;
+  const auth = useAuthQuery();
+  const { user, isLoading } = auth;
   
-  try {
-    const auth = useAuthQuery();
-    user = auth.user;
-    isLoading = auth.isLoading;
-  } catch (error) {
-    console.error("Auth error:", error);
-    return <Redirect to="/auth" />;
-  }
+  console.log("AdminRoute - User:", user, "isLoading:", isLoading);
   
   if (isLoading) {
     return (
@@ -65,14 +51,17 @@ function AdminRoute({ component: Component, ...rest }: { component: React.Compon
   }
   
   if (!user) {
+    console.log("No user found, redirecting to /auth");
     return <Redirect to="/auth" />;
   }
   
   // Check if user has admin role
   if (user.role !== 'admin') {
+    console.log("User is not admin, redirecting to home");
     return <Redirect to="/" />;
   }
   
+  console.log("Admin user authenticated, rendering component");
   return <Component />;
 }
 

@@ -1,5 +1,15 @@
 import { useAuthQuery } from "./use-auth-query";
 
+// Define the credential types
+type LoginCredentials = {
+  email: string;
+  password: string;
+};
+
+type RegisterCredentials = LoginCredentials & {
+  displayName: string;
+};
+
 // Forward all auth operations to useAuthQuery
 export function useAuth() {
   const { user, isLoading, error, login, register, logout } = useAuthQuery();
@@ -14,10 +24,10 @@ export function useAuth() {
       isPending: false,
       isSuccess: false,
       isError: false,
-      mutate: (data) => { login(data) },
-      mutateAsync: async (data) => { 
+      mutate: (data: LoginCredentials) => { login(data) },
+      mutateAsync: async (data: LoginCredentials) => { 
         await login(data);
-        return user;
+        return user!;
       }
     },
     logoutMutation: {
@@ -31,10 +41,10 @@ export function useAuth() {
       isPending: false,
       isSuccess: false,
       isError: false,
-      mutate: (data) => { register(data) },
-      mutateAsync: async (data) => {
+      mutate: (data: RegisterCredentials) => { register(data) },
+      mutateAsync: async (data: RegisterCredentials) => {
         await register(data);
-        return user;
+        return user!;
       }
     }
   };

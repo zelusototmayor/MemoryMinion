@@ -37,10 +37,16 @@ export default function AuthPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        console.log("Auth page - checking auth status");
         const response = await fetch("/api/auth/user");
+        console.log("Auth check response:", response.status);
+        
         if (response.ok) {
           const data = await response.json();
+          console.log("Auth data:", data);
+          
           if (data.user) {
+            console.log("User is already authenticated, redirecting to home");
             setIsAuthenticated(true);
             window.location.href = "/";
           }
@@ -76,9 +82,11 @@ export default function AuthPage() {
   
   // Handle login form submission
   const onLoginSubmit = async (data: LoginFormValues) => {
+    console.log("Login submit with:", data.email);
     setAuthError(null);
     setIsSubmitting(true);
     try {
+      console.log("Sending login request to /api/auth/login");
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -87,12 +95,19 @@ export default function AuthPage() {
         body: JSON.stringify(data)
       });
       
+      console.log("Login response status:", response.status);
+      
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("Login error data:", errorData);
         throw new Error(errorData.message || "Login failed");
       }
       
-      // Redirect will happen automatically because the server sets cookies
+      const userData = await response.json();
+      console.log("Login successful, user data:", userData);
+      
+      // Redirect to home page
+      console.log("Redirecting to home page");
       window.location.href = "/";
     } catch (error) {
       console.error("Login failed:", error);
@@ -104,9 +119,11 @@ export default function AuthPage() {
   
   // Handle registration form submission
   const onRegisterSubmit = async (data: RegisterFormValues) => {
+    console.log("Registration submit with:", data.email);
     setAuthError(null);
     setIsSubmitting(true);
     try {
+      console.log("Sending registration request to /api/auth/register");
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: {
@@ -115,12 +132,19 @@ export default function AuthPage() {
         body: JSON.stringify(data)
       });
       
+      console.log("Registration response status:", response.status);
+      
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("Registration error data:", errorData);
         throw new Error(errorData.message || "Registration failed");
       }
       
-      // Redirect will happen automatically because the server sets cookies
+      const userData = await response.json();
+      console.log("Registration successful, user data:", userData);
+      
+      // Redirect to home page
+      console.log("Redirecting to home page");
       window.location.href = "/";
     } catch (error) {
       console.error("Registration failed:", error);
