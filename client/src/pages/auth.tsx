@@ -35,32 +35,18 @@ export default function AuthPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   
-  // Check if we're already logged in
+  // Get authentication methods from the auth context
+  const { user, login, register, isLoggedIn } = useAuthQuery();
+  
+  // Check if we're already logged in using the auth context
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        console.log("Auth page - checking auth status");
-        const response = await fetch("/api/auth/user");
-        console.log("Auth check response:", response.status);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Auth data:", data);
-          
-          if (data.user) {
-            console.log("User is already authenticated, redirecting to home");
-            setIsAuthenticated(true);
-          }
-        }
-      } catch (error) {
-        console.error("Error checking auth:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    checkAuth();
-  }, []);
+    // If we have a user or isLoggedIn is true, set isAuthenticated
+    if (user || isLoggedIn) {
+      console.log("User is already authenticated via context, redirecting to home");
+      setIsAuthenticated(true);
+    }
+    setIsLoading(false);
+  }, [user, isLoggedIn]);
   
   // Login form
   const loginForm = useForm<LoginFormValues>({
@@ -107,31 +93,11 @@ export default function AuthPage() {
     setAuthError(null);
     setIsSubmitting(true);
     try {
-      console.log("Sending registration request to /api/auth/register");
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(data)
-      });
-      
-      console.log("Registration response status:", response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Registration error data:", errorData);
-        throw new Error(errorData.message || "Registration failed");
-      }
-      
-      const userData = await response.json();
-      console.log("Registration successful, user data:", userData);
-      
-      // Store user data in localStorage
-      localStorage.setItem('user', JSON.stringify(userData.user));
+      // Use the register function from auth context
+      await register(data);
       
       // Set authenticated state to trigger redirect
-      console.log("Redirecting to home page");
+      console.log("Registration successful, redirecting to home page");
       setIsAuthenticated(true);
     } catch (error) {
       console.error("Registration failed:", error);
