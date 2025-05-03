@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAuthQuery } from "@/hooks/use-auth-query";
 
 // Login form schema
 const loginSchema = z.object({
@@ -86,31 +87,11 @@ export default function AuthPage() {
     setAuthError(null);
     setIsSubmitting(true);
     try {
-      console.log("Sending login request to /api/auth/login");
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(data)
-      });
-      
-      console.log("Login response status:", response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Login error data:", errorData);
-        throw new Error(errorData.message || "Login failed");
-      }
-      
-      const userData = await response.json();
-      console.log("Login successful, user data:", userData);
-      
-      // Store user data in localStorage
-      localStorage.setItem('user', JSON.stringify(userData.user));
+      // Use the login function from auth context
+      await login(data);
       
       // Set authenticated state to trigger redirect
-      console.log("Redirecting to home page");
+      console.log("Login successful, redirecting to home page");
       setIsAuthenticated(true);
     } catch (error) {
       console.error("Login failed:", error);

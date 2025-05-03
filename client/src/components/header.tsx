@@ -1,24 +1,36 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuthQuery } from "@/hooks/use-auth-query";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Header() {
   const [showSearchBar, setShowSearchBar] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { toast } = useToast();
+  const [location, setLocation] = useLocation();
   
-  // Default values in case auth system isn't ready
-  let user = null;
-  let logout = async () => {
-    console.log("Logout not available");
+  // Get auth context values
+  const { user, logout, isLoggedIn } = useAuthQuery();
+  
+  // Handle logout with proper error handling
+  const handleLogout = async () => {
+    if (isLoggingOut) return; // Prevent multiple clicks
+    
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      // Redirect happens in the logout function
+    } catch (error) {
+      toast({
+        title: "Logout failed",
+        description: error instanceof Error ? error.message : "An error occurred while logging out",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
-  
-  try {
-    const auth = useAuthQuery();
-    user = auth.user;
-    logout = auth.logout;
-  } catch (error) {
-    console.log("Auth not available in header");
-  }
   
   const toggleSearchBar = () => {
     setShowSearchBar(!showSearchBar);
@@ -79,9 +91,9 @@ export default function Header() {
                 )}
                 
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => logout()}>
+                <DropdownMenuItem onClick={handleLogout} disabled={isLoggingOut}>
                   <span className="material-icons mr-2 text-sm">logout</span>
-                  Logout
+                  {isLoggingOut ? "Logging out..." : "Logout"}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

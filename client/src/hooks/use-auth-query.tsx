@@ -27,6 +27,7 @@ interface AuthContextType {
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (credentials: RegisterCredentials) => Promise<void>;
   logout: () => Promise<void>;
+  isLoggedIn: boolean;
 }
 
 // Create auth context with a default value
@@ -34,6 +35,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   isLoading: false,
   error: null,
+  isLoggedIn: false,
   login: async () => { throw new Error("Login not implemented"); },
   register: async () => { throw new Error("Register not implemented"); },
   logout: async () => { throw new Error("Logout not implemented"); }
@@ -47,7 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const {
     data: user,
     isLoading,
-    error
+    error,
+    refetch
   } = useQuery<UserWithoutPassword | null>({
     queryKey: ["/api/auth/user"],
     queryFn: async () => {
@@ -58,6 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (response.status === 401) {
           console.log("User not authenticated");
+          // Clear localStorage if the server says we're not authenticated
+          localStorage.removeItem('user');
           return null;
         }
         
@@ -73,9 +78,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Store in localStorage for persistence
         if (data.user) {
           localStorage.setItem('user', JSON.stringify(data.user));
+          return data.user;
         }
         
-        return data.user || null;
+        return null;
       } catch (error) {
         console.error("Error fetching user:", error);
         // Try to get from localStorage as fallback
@@ -107,8 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
   
   // Login mutation
-  const login = async (credentials: LoginCredentials) => {
-    try {
+  const loginMutation = useMutation({
+    mutationFn: async (credentials: LoginCredentials) => {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -122,8 +128,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.message || "Login failed");
       }
       
-      const data = await response.json();
-      
+      return await response.json();
+    },
+    onSuccess: (data) => {
       // Update user data in query cache and localStorage
       queryClient.setQueryData(["/api/auth/user"], data.user);
       localStorage.setItem('user', JSON.stringify(data.user));
@@ -132,19 +139,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Login successful",
         description: `Welcome back, ${data.user.displayName}!`,
       });
-    } catch (error) {
+      
+      // Refetch to ensure everything is in sync
+      refetch();
+    },
+    onError: (error: Error) => {
       toast({
         title: "Login failed",
-        description: (error as Error).message || "Invalid credentials",
+        description: error.message || "Invalid credentials",
         variant: "destructive"
       });
-      throw error;
     }
-  };
+  });
   
   // Register mutation
-  const register = async (credentials: RegisterCredentials) => {
-    try {
+  const registerMutation = useMutation({
+    mutationFn: async (credentials: RegisterCredentials) => {
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: {
@@ -158,8 +168,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.message || "Registration failed");
       }
       
-      const data = await response.json();
-      
+      return await response.json();
+    },
+    onSuccess: (data) => {
       // Update user data in query cache and localStorage
       queryClient.setQueryData(["/api/auth/user"], data.user);
       localStorage.setItem('user', JSON.stringify(data.user));
@@ -168,21 +179,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Registration successful",
         description: `Welcome to RevocAI, ${data.user.displayName}!`,
       });
-    } catch (error) {
+      
+      // Refetch to ensure everything is in sync
+      refetch();
+    },
+    onError: (error: Error) => {
       toast({
         title: "Registration failed",
-        description: (error as Error).message || "Could not create account",
+        description: error.message || "Could not create account",
         variant: "destructive"
       });
-      throw error;
     }
-  };
+  });
   
   // Logout mutation
-  const logout = async () => {
-    try {
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
       const response = await fetch("/api/auth/logout", {
-        method: "POST"
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        }
       });
       
       if (!response.ok) {
@@ -190,6 +207,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.message || "Logout failed");
       }
       
+      return await response.json();
+    },
+    onSuccess: () => {
       // Clear user data from query cache and localStorage
       queryClient.setQueryData(["/api/auth/user"], null);
       localStorage.removeItem('user');
@@ -198,14 +218,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Logged out",
         description: "You have been successfully logged out",
       });
-    } catch (error) {
+      
+      // Refetch to ensure everything is in sync
+      refetch();
+      
+      // Force reload to clear any stale state
+      window.location.href = "/auth";
+    },
+    onError: (error: Error) => {
       toast({
         title: "Logout failed",
-        description: (error as Error).message || "Could not log out",
+        description: error.message || "Could not log out",
         variant: "destructive"
       });
-      throw error;
     }
+  });
+  
+  // Public methods that use mutations
+  const login = async (credentials: LoginCredentials) => {
+    return loginMutation.mutateAsync(credentials);
+  };
+  
+  const register = async (credentials: RegisterCredentials) => {
+    return registerMutation.mutateAsync(credentials);
+  };
+  
+  const logout = async () => {
+    return logoutMutation.mutateAsync();
   };
   
   // Create the context value with proper null handling
@@ -213,6 +252,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: user || null,
     isLoading,
     error,
+    isLoggedIn: !!user,
     login,
     register,
     logout
