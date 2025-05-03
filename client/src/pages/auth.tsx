@@ -131,8 +131,8 @@ export default function AuthPage() {
     );
   }
   
-  // If already authenticated, redirect to home
-  if (isAuthenticated) {
+  // If already authenticated via our context or local state, redirect to home
+  if (isAuthenticated || isLoggedIn || user) {
     return <Redirect to="/" />;
   }
   
