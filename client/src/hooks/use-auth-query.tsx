@@ -69,14 +69,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         const data = await response.json();
         console.log("User data:", data);
+        
+        // Store in localStorage for persistence
+        if (data.user) {
+          localStorage.setItem('user', JSON.stringify(data.user));
+        }
+        
         return data.user || null;
       } catch (error) {
         console.error("Error fetching user:", error);
+        // Try to get from localStorage as fallback
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          try {
+            return JSON.parse(storedUser);
+          } catch (e) {
+            localStorage.removeItem('user');
+          }
+        }
         return null;
       }
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: 1, // Only retry once to avoid spamming failed requests
+    retry: 1, // Only retry once to avoid spamming failed requests,
+    initialData: () => {
+      // Try to load initial data from localStorage
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        try {
+          return JSON.parse(storedUser);
+        } catch (e) {
+          localStorage.removeItem('user');
+        }
+      }
+      return null;
+    },
   });
   
   // Login mutation
@@ -97,8 +124,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       const data = await response.json();
       
-      // Update user data in query cache
+      // Update user data in query cache and localStorage
       queryClient.setQueryData(["/api/auth/user"], data.user);
+      localStorage.setItem('user', JSON.stringify(data.user));
       
       toast({
         title: "Login successful",
@@ -132,8 +160,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       const data = await response.json();
       
-      // Update user data in query cache
+      // Update user data in query cache and localStorage
       queryClient.setQueryData(["/api/auth/user"], data.user);
+      localStorage.setItem('user', JSON.stringify(data.user));
       
       toast({
         title: "Registration successful",
@@ -161,8 +190,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorData.message || "Logout failed");
       }
       
-      // Clear user data from query cache
+      // Clear user data from query cache and localStorage
       queryClient.setQueryData(["/api/auth/user"], null);
+      localStorage.removeItem('user');
       
       toast({
         title: "Logged out",
