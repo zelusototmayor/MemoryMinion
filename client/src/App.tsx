@@ -68,6 +68,9 @@ function AdminRoute({ component: Component, ...rest }: { component: React.Compon
 function Router() {
   return (
     <Switch>
+      {/* Public routes */}
+      <Route path="/auth" component={AuthPage} />
+      
       {/* Protected routes */}
       <Route path="/" component={() => <ProtectedRoute component={HomePage} path="/" />} />
       <Route path="/contact/:id" component={() => <ProtectedRoute component={ContactDetailPage} path="/contact/:id" />} />
@@ -78,8 +81,7 @@ function Router() {
       {/* Admin routes */}
       <Route path="/admin/users" component={() => <AdminRoute component={AdminUsersPage} path="/admin/users" />} />
       
-      {/* Public routes */}
-      <Route path="/auth" component={AuthPage} />
+      {/* Catch-all route */}
       <Route component={NotFound} />
     </Switch>
   );

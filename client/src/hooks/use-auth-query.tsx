@@ -29,8 +29,15 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-// Create auth context
-const AuthContext = createContext<AuthContextType | null>(null);
+// Create auth context with a default value
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  isLoading: false,
+  error: null,
+  login: async () => { throw new Error("Login not implemented"); },
+  register: async () => { throw new Error("Register not implemented"); },
+  logout: async () => { throw new Error("Logout not implemented"); }
+});
 
 // Auth provider component
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -190,9 +197,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 // Hook to use auth context
 export function useAuthQuery() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuthQuery must be used within an AuthProvider");
-  }
-  return context;
+  return useContext(AuthContext);
 }
