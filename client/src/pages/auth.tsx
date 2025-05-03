@@ -49,7 +49,6 @@ export default function AuthPage() {
           if (data.user) {
             console.log("User is already authenticated, redirecting to home");
             setIsAuthenticated(true);
-            window.location.href = "/";
           }
         }
       } catch (error) {
@@ -107,9 +106,12 @@ export default function AuthPage() {
       const userData = await response.json();
       console.log("Login successful, user data:", userData);
       
-      // Redirect to home page
+      // Store user data in localStorage
+      localStorage.setItem('user', JSON.stringify(userData.user));
+      
+      // Set authenticated state to trigger redirect
       console.log("Redirecting to home page");
-      window.location.href = "/";
+      setIsAuthenticated(true);
     } catch (error) {
       console.error("Login failed:", error);
       setAuthError(error instanceof Error ? error.message : "Login failed. Please try again.");
@@ -144,9 +146,12 @@ export default function AuthPage() {
       const userData = await response.json();
       console.log("Registration successful, user data:", userData);
       
-      // Redirect to home page
+      // Store user data in localStorage
+      localStorage.setItem('user', JSON.stringify(userData.user));
+      
+      // Set authenticated state to trigger redirect
       console.log("Redirecting to home page");
-      window.location.href = "/";
+      setIsAuthenticated(true);
     } catch (error) {
       console.error("Registration failed:", error);
       setAuthError(error instanceof Error ? error.message : "Registration failed. Please try again.");
@@ -179,16 +184,9 @@ export default function AuthPage() {
     );
   }
   
-  // If already authenticated, we'll redirect in the useEffect
+  // If already authenticated, redirect to home
   if (isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Redirecting to dashboard...</p>
-        </div>
-      </div>
-    );
+    return <Redirect to="/" />;
   }
   
   return (
