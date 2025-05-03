@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import { Switch, Route, Redirect } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
@@ -15,10 +16,27 @@ import { Loader2 } from "lucide-react";
 function ProtectedRoute({ component: Component, ...rest }: { component: React.ComponentType, path: string }) {
   const auth = useAuthQuery();
   const { user, isLoading } = auth;
+  const [isChecking, setIsChecking] = useState(true);
+  const [localUser, setLocalUser] = useState<any>(null);
   
-  console.log("ProtectedRoute - User:", user, "isLoading:", isLoading);
+  useEffect(() => {
+    // Try to load from localStorage first
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        setLocalUser(JSON.parse(storedUser));
+      }
+    } catch (e) {
+      console.error("Error loading user from localStorage:", e);
+    } finally {
+      setIsChecking(false);
+    }
+  }, []);
   
-  if (isLoading) {
+  console.log("ProtectedRoute - User:", user, "LocalUser:", localUser, "isLoading:", isLoading, "isChecking:", isChecking);
+  
+  // Show loader while we're loading from API or checking localStorage
+  if (isLoading || isChecking) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -26,8 +44,11 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
     );
   }
   
-  if (!user) {
-    console.log("No user found, redirecting to /auth");
+  // Use either the user from the API or from localStorage
+  const authenticatedUser = user || localUser;
+  
+  if (!authenticatedUser) {
+    console.log("No user found (in API or localStorage), redirecting to /auth");
     return <Redirect to="/auth" />;
   }
   
@@ -39,10 +60,27 @@ function ProtectedRoute({ component: Component, ...rest }: { component: React.Co
 function AdminRoute({ component: Component, ...rest }: { component: React.ComponentType, path: string }) {
   const auth = useAuthQuery();
   const { user, isLoading } = auth;
+  const [isChecking, setIsChecking] = useState(true);
+  const [localUser, setLocalUser] = useState<any>(null);
   
-  console.log("AdminRoute - User:", user, "isLoading:", isLoading);
+  useEffect(() => {
+    // Try to load from localStorage first
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        setLocalUser(JSON.parse(storedUser));
+      }
+    } catch (e) {
+      console.error("Error loading user from localStorage:", e);
+    } finally {
+      setIsChecking(false);
+    }
+  }, []);
   
-  if (isLoading) {
+  console.log("AdminRoute - User:", user, "LocalUser:", localUser, "isLoading:", isLoading, "isChecking:", isChecking);
+  
+  // Show loader while we're loading from API or checking localStorage
+  if (isLoading || isChecking) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -50,13 +88,16 @@ function AdminRoute({ component: Component, ...rest }: { component: React.Compon
     );
   }
   
-  if (!user) {
-    console.log("No user found, redirecting to /auth");
+  // Use either the user from the API or from localStorage
+  const authenticatedUser = user || localUser;
+  
+  if (!authenticatedUser) {
+    console.log("No user found (in API or localStorage), redirecting to /auth");
     return <Redirect to="/auth" />;
   }
   
   // Check if user has admin role
-  if (user.role !== 'admin') {
+  if (authenticatedUser.role !== 'admin') {
     console.log("User is not admin, redirecting to home");
     return <Redirect to="/" />;
   }
