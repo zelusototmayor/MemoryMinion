@@ -115,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Login mutation
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginCredentials) => {
+      console.log("Sending login request to:", "/api/auth/login", credentials);
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -125,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("Login error:", errorData);
         throw new Error(errorData.message || "Login failed");
       }
       
@@ -155,6 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Register mutation
   const registerMutation = useMutation({
     mutationFn: async (credentials: RegisterCredentials) => {
+      console.log("Sending registration request to:", "/api/auth/register", credentials);
       const response = await fetch("/api/auth/register", {
         method: "POST",
         headers: {
@@ -165,6 +168,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("Registration error:", errorData);
         throw new Error(errorData.message || "Registration failed");
       }
       
@@ -195,6 +199,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Logout mutation
   const logoutMutation = useMutation({
     mutationFn: async () => {
+      console.log("Sending logout request to:", "/api/auth/logout");
       const response = await fetch("/api/auth/logout", {
         method: "POST",
         headers: {
@@ -204,6 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (!response.ok) {
         const errorData = await response.json();
+        console.error("Logout error:", errorData);
         throw new Error(errorData.message || "Logout failed");
       }
       

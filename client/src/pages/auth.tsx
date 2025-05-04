@@ -12,7 +12,7 @@ import { Loader2, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuthQuery } from "@/hooks/use-auth-query";
 
-// Login form schema
+// Login form schema (must match LoginCredentials interface in use-auth-query.tsx)
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),
