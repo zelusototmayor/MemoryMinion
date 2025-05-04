@@ -201,7 +201,7 @@ export default function AuthPage() {
                     >
                       {isSubmitting ? "Signing in..." : "Sign in"}
                     </Button>
-                    <div className="text-center">
+                    <div className="flex justify-around text-xs pt-2">
                       <button 
                         type="button"
                         onClick={async () => {
@@ -213,9 +213,30 @@ export default function AuthPage() {
                             console.error("Error testing user auth:", error);
                           }
                         }}
-                        className="text-xs text-primary hover:underline"
+                        className="text-primary hover:underline text-xs"
                       >
                         Test Auth Status
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const { testLoginRequest } = await import('../test-auth');
+                            const email = loginForm.getValues('email');
+                            const password = loginForm.getValues('password');
+                            if (email && password) {
+                              const result = await testLoginRequest(email, password);
+                              console.log("Direct login result:", result);
+                            } else {
+                              console.error("Please enter email and password first");
+                            }
+                          } catch (error) {
+                            console.error("Error testing direct login:", error);
+                          }
+                        }}
+                        className="text-primary hover:underline text-xs"
+                      >
+                        Test Direct Login
                       </button>
                     </div>
                   </form>
@@ -271,11 +292,28 @@ export default function AuthPage() {
                     
                     <Button
                       type="submit"
-                      className="w-full"
+                      className="w-full mb-2"
                       disabled={isSubmitting}
                     >
                       {isSubmitting ? "Creating account..." : "Create account"}
                     </Button>
+                    <div className="flex justify-around text-xs pt-2">
+                      <button 
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const { testUserRequest } = await import('../test-auth');
+                            const result = await testUserRequest();
+                            console.log("Test user auth result:", result);
+                          } catch (error) {
+                            console.error("Error testing user auth:", error);
+                          }
+                        }}
+                        className="text-primary hover:underline text-xs"
+                      >
+                        Test Auth Status
+                      </button>
+                    </div>
                   </form>
                 </Form>
               </TabsContent>
