@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["/api/auth/user"],
     queryFn: async () => {
       try {
-        console.log("Fetching user data...");
+        console.log("Fetching user data from /api/auth/user endpoint...");
         const response = await fetch("/api/auth/user");
         console.log("User response status:", response.status);
         
