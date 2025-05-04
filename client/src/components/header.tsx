@@ -17,11 +17,14 @@ export default function Header() {
   const handleLogout = async () => {
     if (isLoggingOut) return; // Prevent multiple clicks
     
+    console.log("Attempting to logout...");
     setIsLoggingOut(true);
     try {
       await logout();
       // Redirect happens in the logout function
+      console.log("Logout successful");
     } catch (error) {
+      console.error("Logout error:", error);
       toast({
         title: "Logout failed",
         description: error instanceof Error ? error.message : "An error occurred while logging out",

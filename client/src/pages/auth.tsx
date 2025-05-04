@@ -73,7 +73,14 @@ export default function AuthPage() {
     setAuthError(null);
     setIsSubmitting(true);
     try {
-      // Use the login function from auth context
+      // First, try making a direct API call for diagnostic purposes
+      console.log("Testing direct API call first");
+      const { testLoginRequest } = await import('../test-auth');
+      const testResult = await testLoginRequest(data.email, data.password);
+      console.log("Test login result:", testResult);
+      
+      // Now use the normal login function from auth context
+      console.log("Now trying the normal login flow");
       await login(data);
       
       // Set authenticated state to trigger redirect
@@ -189,11 +196,28 @@ export default function AuthPage() {
                     
                     <Button
                       type="submit"
-                      className="w-full"
+                      className="w-full mb-2"
                       disabled={isSubmitting}
                     >
                       {isSubmitting ? "Signing in..." : "Sign in"}
                     </Button>
+                    <div className="text-center">
+                      <button 
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const { testUserRequest } = await import('../test-auth');
+                            const result = await testUserRequest();
+                            console.log("Test user auth result:", result);
+                          } catch (error) {
+                            console.error("Error testing user auth:", error);
+                          }
+                        }}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Test Auth Status
+                      </button>
+                    </div>
                   </form>
                 </Form>
               </TabsContent>
