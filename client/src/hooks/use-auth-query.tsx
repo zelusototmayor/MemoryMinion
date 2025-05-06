@@ -31,15 +31,110 @@ interface AuthContextType {
 }
 
 // Create auth context with a default value
-const AuthContext = createContext<AuthContextType>({
+export const AuthContext = createContext<AuthContextType>({
   user: null,
-  isLoading: false,
+  isLoading: true,
   error: null,
   isLoggedIn: false,
   login: async () => { throw new Error("Login not implemented"); },
   register: async () => { throw new Error("Register not implemented"); },
   logout: async () => { throw new Error("Logout not implemented"); }
 });
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch('/api/auth/user', {
+        credentials: 'include'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+      }
+    } catch (err) {
+      setError(err as Error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const login = async (credentials: LoginCredentials) => {
+    setError(null);
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(credentials)
+      });
+      
+      if (!response.ok) throw new Error('Login failed');
+      
+      const data = await response.json();
+      setUser(data.user);
+      return data.user;
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      setUser(null);
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  const register = async (credentials: RegisterCredentials) => {
+    setError(null);
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(credentials)
+      });
+      
+      if (!response.ok) throw new Error('Registration failed');
+      
+      const data = await response.json();
+      setUser(data.user);
+      return data.user;
+    } catch (err) {
+      setError(err as Error);
+      throw err;
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{
+      user,
+      isLoading,
+      error,
+      isLoggedIn: !!user,
+      login,
+      logout,
+      register
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
 
 // Auth provider component
 export function AuthProvider({ children }: { children: ReactNode }) {

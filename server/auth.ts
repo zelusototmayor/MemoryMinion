@@ -60,8 +60,11 @@ export function setupAuth(app: Express) {
     store: storage.sessionStore,
     cookie: {
       secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
-    }
+      sameSite: 'lax'
+    },
+    name: 'connect.sid'
   };
 
   app.set("trust proxy", 1);
@@ -205,8 +208,7 @@ export function setupAuth(app: Express) {
 
   app.post("/api/auth/logout", (req, res, next) => {
     if (!req.isAuthenticated()) {
-      console.log("Logout requested but no user is authenticated");
-      return res.json({ message: "No user to log out" });
+      return res.status(401).json({ message: "Not authenticated" });
     }
     
     const userEmail = (req.user as Express.User).email;
@@ -215,11 +217,19 @@ export function setupAuth(app: Express) {
     req.logout((err: Error) => {
       if (err) {
         console.error(`Error during logout for ${userEmail}:`, err);
-        return next(err);
+        return res.status(500).json({ message: "Logout failed", error: err.message });
       }
       
-      console.log(`User ${userEmail} logged out successfully`);
-      res.json({ message: "Logged out successfully" });
+      req.session.destroy((sessionErr) => {
+        if (sessionErr) {
+          console.error(`Session destruction error for ${userEmail}:`, sessionErr);
+          return res.status(500).json({ message: "Session cleanup failed" });
+        }
+        
+        console.log(`User ${userEmail} logged out successfully`);
+        res.clearCookie('connect.sid');
+        res.json({ message: "Logged out successfully" });
+      });
     });
   });
 
