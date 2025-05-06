@@ -13,30 +13,46 @@ declare global {
 }
 
 // Initialize Supabase client for server-side operations
-// Handling server-side variables
-let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-let supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+// Use fallback values to prevent crashes if no environment variables are provided
+const fallbackUrl = 'https://example.supabase.co';
+const fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkaXVoeml';
 
-// Make sure the URL is properly formatted
-if (supabaseUrl && !supabaseUrl.startsWith('https://')) {
+// Get server-side environment variables with fallbacks
+const envUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const envKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+// Use environment variables or fallbacks
+let supabaseUrl = envUrl || fallbackUrl;
+let supabaseKey = envKey || fallbackKey;
+
+// Clean up URL if it has formatting issues
+if (supabaseUrl.includes('VITE_') || supabaseUrl.includes('SUPABASE_')) {
+  supabaseUrl = supabaseUrl
+    .replace(/VITE_/g, '')
+    .replace(/SUPABASE_/g, '');
+}
+
+// Ensure URL has proper https:// prefix
+if (!supabaseUrl.startsWith('https://')) {
   supabaseUrl = `https://${supabaseUrl}`;
 }
 
-console.log('[Server] Initializing Supabase with URL:', supabaseUrl ? 'Found' : 'Missing');
-console.log('[Server] Supabase key:', supabaseKey ? 'Found' : 'Missing');
-
-if (!supabaseUrl || !supabaseKey) {
-  console.warn('[Server] Missing Supabase credentials. Authentication will fall back to default user.');
+// Fix double https:// if present
+if (supabaseUrl.includes('https://https://')) {
+  supabaseUrl = supabaseUrl.replace('https://https://', 'https://');
 }
 
-// Initialize client or set to null if credentials are missing/invalid
-let supabase = null;
-if (supabaseUrl && supabaseKey) {
-  try {
-    supabase = createClient(supabaseUrl, supabaseKey);
-  } catch (error) {
-    console.error('[Server] Failed to initialize Supabase client:', error);
-  }
+console.log('[Server] Initializing Supabase with URL:', envUrl ? 'Found' : 'Using fallback');
+console.log('[Server] Supabase key:', envKey ? 'Found' : 'Using fallback');
+
+// Initialize client
+let supabase;
+try {
+  supabase = createClient(supabaseUrl, supabaseKey);
+} catch (error) {
+  console.error('[Server] Failed to initialize Supabase client:', error);
+  // If creation fails, set to null and we'll handle the null case in the middleware
+  supabase = null;
 }
 
 // Default user to fall back to
