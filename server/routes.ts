@@ -15,6 +15,7 @@ import {
 import { storage } from "./storage";
 import { transcribeAudio, processMessage, detectContacts, detectCalendarEvents, detectTasks, generateConversationTitle } from "./openai";
 import multer from "multer";
+import { setupSupabaseAuth } from "./supabase-auth";
 
 // Set up multer for audio upload
 const upload = multer({
@@ -22,8 +23,13 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
 });
 
-// Default user ID for all requests since auth is removed
+// Default user ID as fallback for requests when no auth is present
 const DEFAULT_USER_ID = 1;
+
+// Get user ID from request (uses Supabase auth if available, otherwise default)
+function getUserId(req: Request): number {
+  return req.user?.id || DEFAULT_USER_ID;
+}
 
 // Validator function for request bodies
 function zValidator(type: "body" | "query" | "params", schema: z.ZodType<any, any>) {
@@ -45,6 +51,9 @@ function zValidator(type: "body" | "query" | "params", schema: z.ZodType<any, an
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup Supabase authentication middleware
+  setupSupabaseAuth(app);
+  
   const httpServer = createServer(app);
   
   // Admin routes for user management

@@ -33,15 +33,19 @@ export default function AuthPage() {
             supabaseClient={supabase}
             appearance={{
               theme: ThemeSupa,
+              style: {
+                button: {
+                  borderRadius: '0.5rem',
+                },
+                input: {
+                  borderRadius: '0.5rem',
+                },
+              },
               variables: {
                 default: {
                   colors: {
                     brand: 'rgb(var(--primary))',
                     brandAccent: 'rgb(var(--primary) / 0.8)',
-                  },
-                  borderRadii: {
-                    button: '0.5rem',
-                    input: '0.5rem',
                   },
                 },
               },
