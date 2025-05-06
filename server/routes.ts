@@ -15,9 +15,6 @@ import {
 import { storage } from "./storage";
 import { transcribeAudio, processMessage, detectContacts, detectCalendarEvents, detectTasks, generateConversationTitle } from "./openai";
 import multer from "multer";
-import { setupAuth } from "./auth";
-import { scrypt, randomBytes } from "crypto";
-import { promisify } from "util";
 
 // Set up multer for audio upload
 const upload = multer({
@@ -25,31 +22,33 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
 });
 
-// Middleware to check if user is authenticated
-function isAuthenticated(req: Request, res: Response, next: NextFunction) {
-  if (req.isAuthenticated()) {
-    return next();
-  }
-  return res.status(401).json({ message: "Not authenticated" });
-}
+// Default user ID for all requests since auth is removed
+const DEFAULT_USER_ID = 1;
 
-// For beta testing, we'll allow all authenticated users to access admin features
-// In a production app, you'd want more sophisticated role management
-function isAdmin(req: Request, res: Response, next: NextFunction) {
-  if (req.isAuthenticated() && req.user.role === 'admin') {
-    return next();
-  }
-  return res.status(403).json({ message: "Forbidden - Admin access required" });
+// Validator function for request bodies
+function zValidator(type: "body" | "query" | "params", schema: z.ZodType<any, any>) {
+  return (req: Request, res: Response, next: Function) => {
+    try {
+      const result = schema.parse(req[type]);
+      req[type] = result;
+      next();
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation error",
+          errors: error.errors
+        });
+      }
+      next(error);
+    }
+  };
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
-  // Set up authentication
-  setupAuth(app);
-  
   // Admin routes for user management
-  app.get("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
+  app.get("/api/admin/users", async (req: Request, res: Response) => {
     try {
       const users = await storage.getAllUsers();
       const usersWithoutPasswords = users.map(user => {
@@ -64,9 +63,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/admin/users", isAdmin, async (req: Request, res: Response) => {
+  app.post("/api/admin/users", async (req: Request, res: Response) => {
     try {
-      const { email, password, displayName, role } = req.body;
+      const { email, displayName, role } = req.body;
       
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(email);
@@ -74,17 +73,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "User with this email already exists" });
       }
       
-      // Hash password - use the same function from auth.ts
-      const scryptAsync = promisify(scrypt);
-      
-      const salt = randomBytes(16).toString("hex");
-      const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-      const hashedPassword = `${buf.toString("hex")}.${salt}`;
-      
-      // Create user
+      // Create user with placeholder password (no authentication)
       const user = await storage.createUser({
         email,
-        password: hashedPassword,
+        password: "no-auth-placeholder",
         displayName,
         role: role || "user" // Default to "user" if role is not provided
       });
@@ -98,10 +90,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Conversation routes - require authentication
-  app.get("/api/conversations", isAuthenticated, async (req: Request, res: Response) => {
+  // Conversation routes
+  app.get("/api/conversations", async (req: Request, res: Response) => {
     try {
-      const userId = (req.user as Express.User).id;
+      // Use default user ID
+      const userId = DEFAULT_USER_ID;
       
       // Get conversations
       const conversations = await storage.getConversationsForUser(userId);
@@ -132,10 +125,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/conversations", isAuthenticated, zValidator("body", insertConversationSchema), async (req: Request, res: Response) => {
+  app.post("/api/conversations", zValidator("body", insertConversationSchema), async (req: Request, res: Response) => {
     try {
-      // Make sure user_id matches the authenticated user
-      const userId = (req.user as Express.User).id;
+      // Use default user ID
+      const userId = DEFAULT_USER_ID;
       const conversation = await storage.createConversation({
         ...req.body,
         user_id: userId
@@ -147,7 +140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/conversations/:id", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/conversations/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
       
@@ -161,12 +154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Conversation not found" });
       }
       
-      // Check if conversation belongs to the authenticated user
-      const userId = (req.user as Express.User).id;
-      if (conversation.user_id !== userId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-      
+      // No need to check user ID - we're using a default user
       const messages = await storage.getMessagesForConversation(id);
       
       return res.json({ conversation, messages });
@@ -177,19 +165,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Message routes
-  app.post("/api/messages", isAuthenticated, zValidator("body", insertMessageSchema), async (req: Request, res: Response) => {
+  app.post("/api/messages", zValidator("body", insertMessageSchema), async (req: Request, res: Response) => {
     try {
       const { conversation_id, sender, content } = req.body;
       
-      // Verify that the conversation belongs to the authenticated user
+      // Verify that the conversation exists
       const conversation = await storage.getConversationById(conversation_id);
       if (!conversation) {
         return res.status(404).json({ message: "Conversation not found" });
-      }
-      
-      const userId = (req.user as Express.User).id;
-      if (conversation.user_id !== userId) {
-        return res.status(403).json({ message: "Access denied" });
       }
       
       // Create message
@@ -241,7 +224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Audio transcription route
-  app.post("/api/transcribe", isAuthenticated, upload.single("audio"), async (req: Request, res: Response) => {
+  app.post("/api/transcribe", upload.single("audio"), async (req: Request, res: Response) => {
     try {
       if (!req.file || !req.file.buffer) {
         return res.status(400).json({ message: "No audio file provided" });
@@ -256,9 +239,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Contact routes
-  app.get("/api/contacts", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/contacts", async (req: Request, res: Response) => {
     try {
-      const userId = (req.user as Express.User).id;
+      // Use default user ID
+      const userId = DEFAULT_USER_ID;
       const contacts = await storage.getContactsWithMentionCount(userId);
       return res.json({ contacts });
     } catch (error) {
@@ -267,10 +251,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/contacts", isAuthenticated, zValidator("body", insertContactSchema), async (req: Request, res: Response) => {
+  app.post("/api/contacts", zValidator("body", insertContactSchema), async (req: Request, res: Response) => {
     try {
-      // Make sure user_id matches the authenticated user
-      const userId = (req.user as Express.User).id;
+      // Use default user ID
+      const userId = DEFAULT_USER_ID;
       const contact = await storage.createContact({
         ...req.body,
         user_id: userId
@@ -283,9 +267,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Important: /frequent must come BEFORE /:id to avoid route conflicts
-  app.get("/api/contacts/frequent", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/contacts/frequent", async (req: Request, res: Response) => {
     try {
-      const userId = (req.user as Express.User).id;
+      // Use default user ID
+      const userId = DEFAULT_USER_ID;
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 4;
       
       const contacts = await storage.getFrequentContactsForUser(userId, limit);
@@ -296,7 +281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/contacts/:id", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/contacts/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
       
@@ -310,12 +295,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Contact not found" });
       }
       
-      // Check if contact belongs to the authenticated user
-      const userId = (req.user as Express.User).id;
-      if (contact.user_id !== userId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-      
+      // No need to check user ID - we're using a default user
       const contactLinks = await storage.getContactLinksForContact(id);
       
       // Get messages associated with this contact
@@ -325,7 +305,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const messageId of messageIds) {
         // For each message ID, find messages in all conversations
         // This approach might need optimization in a production app
-        const conversations = await storage.getConversationsForUser(userId);
+        const conversations = await storage.getConversationsForUser(DEFAULT_USER_ID);
         
         for (const conversation of conversations) {
           const conversationMessages = await storage.getMessagesForConversation(conversation.id);
@@ -346,19 +326,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Contact link routes
-  app.post("/api/contact-links", isAuthenticated, zValidator("body", insertContactLinkSchema), async (req: Request, res: Response) => {
+  app.post("/api/contact-links", zValidator("body", insertContactLinkSchema), async (req: Request, res: Response) => {
     try {
       const contactLink = await storage.createContactLink(req.body);
       
-      // Verify that both the contact and message belong to the user
+      // Verify that the contact exists
       const contact = await storage.getContactById(req.body.contact_id);
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
-      }
-      
-      const userId = (req.user as Express.User).id;
-      if (contact.user_id !== userId) {
-        return res.status(403).json({ message: "Access denied" });
       }
       
       return res.status(201).json({ contactLink });
@@ -369,44 +344,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Search routes
-  app.get("/api/search", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/search", async (req: Request, res: Response) => {
     try {
-      const userId = (req.user as Express.User).id;
       const query = req.query.q as string;
-      
       if (!query) {
-        return res.status(400).json({ message: "Invalid search parameters" });
+        return res.status(400).json({ message: "Search query is required" });
       }
       
-      const conversations = await storage.searchConversations(userId, query);
-      const contacts = await storage.searchContacts(userId, query);
+      // Use default user ID
+      const userId = DEFAULT_USER_ID;
+      
+      // Search in conversations and contacts
+      const [conversations, contacts] = await Promise.all([
+        storage.searchConversations(userId, query),
+        storage.searchContacts(userId, query)
+      ]);
       
       return res.json({ conversations, contacts });
     } catch (error) {
       console.error("Error searching:", error);
-      return res.status(500).json({ message: "Search failed" });
+      return res.status(500).json({ message: "Failed to search" });
     }
   });
   
   // Generate conversation title
-  app.post("/api/generate-title", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/generate-title", async (req: Request, res: Response) => {
     try {
       const { messages } = req.body;
       
-      if (!Array.isArray(messages) || messages.length === 0) {
-        return res.status(400).json({ message: "Invalid messages array" });
+      if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({ message: "Valid messages array is required" });
       }
       
-      const title = await generateConversationTitle(messages);
+      const simplifiedMessages = messages.map(m => ({
+        sender: m.sender,
+        content: m.content
+      }));
+      
+      const title = await generateConversationTitle(simplifiedMessages);
+      
       return res.json({ title });
     } catch (error) {
       console.error("Error generating title:", error);
       return res.status(500).json({ message: "Failed to generate title" });
     }
   });
-
-  // Get contacts mentioned in a conversation
-  app.get("/api/conversations/:id/contacts", isAuthenticated, async (req: Request, res: Response) => {
+  
+  // Get conversation contacts
+  app.get("/api/conversations/:id/contacts", async (req: Request, res: Response) => {
     try {
       const conversationId = parseInt(req.params.id, 10);
       
@@ -414,18 +399,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid conversation ID" });
       }
       
-      // Verify the conversation exists and belongs to user
+      // Get conversation to verify it exists
       const conversation = await storage.getConversationById(conversationId);
       if (!conversation) {
         return res.status(404).json({ message: "Conversation not found" });
       }
       
-      const userId = (req.user as Express.User).id;
-      if (conversation.user_id !== userId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-      
-      // Get all messages for this conversation
+      // Get messages for this conversation
       const messages = await storage.getMessagesForConversation(conversationId);
       
       // Extract unique contact IDs mentioned in this conversation
@@ -438,65 +418,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
-      // Get the contact details for these IDs
-      const contactsWithMentions: ContactWithMentionCount[] = [];
-      
-      // Convert Set to Array and process in sequence
-      const contactIdsArray = Array.from(contactIds);
-      for (let i = 0; i < contactIdsArray.length; i++) {
-        const contactId = contactIdsArray[i];
+      // Get contact details for each ID
+      const contacts = [];
+      for (const contactId of contactIds) {
         const contact = await storage.getContactById(contactId);
-        
         if (contact) {
-          // Count mentions of this contact in the conversation
-          let mentionCount = 0;
-          messages.forEach(message => {
-            if (message.contactLinks) {
-              message.contactLinks.forEach(link => {
-                if (link.contact_id === contactId) {
-                  mentionCount++;
-                }
-              });
-            }
-          });
-          
-          // Add to result with mention count
-          contactsWithMentions.push({
-            ...contact,
-            mentionCount
-          });
+          contacts.push(contact);
         }
       }
       
-      // Sort by mention count (most mentioned first)
-      contactsWithMentions.sort((a, b) => b.mentionCount - a.mentionCount);
-      
-      return res.json({ contacts: contactsWithMentions });
+      return res.json({ contacts });
     } catch (error) {
       console.error("Error fetching conversation contacts:", error);
       return res.status(500).json({ message: "Failed to fetch conversation contacts" });
     }
   });
-
-  // Calendar Event Routes
-  app.get("/api/calendar", isAuthenticated, async (req: Request, res: Response) => {
+  
+  // Calendar routes
+  app.get("/api/calendar", async (req: Request, res: Response) => {
     try {
-      const userId = (req.user as Express.User).id;
+      // Use default user ID
+      const userId = DEFAULT_USER_ID;
       
-      // Check for date range parameters
+      // Handle date range filter
       if (req.query.start && req.query.end) {
         const startDate = new Date(req.query.start as string);
         const endDate = new Date(req.query.end as string);
         
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-          return res.status(400).json({ message: "Invalid date range parameters" });
+          return res.status(400).json({ message: "Invalid date range" });
         }
         
         const events = await storage.getCalendarEventsByTimeRange(userId, startDate, endDate);
         return res.json({ events });
       }
       
-      // No date range, return all events
+      // No filter, return all events
       const events = await storage.getCalendarEventsForUser(userId);
       return res.json({ events });
     } catch (error) {
@@ -505,7 +462,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/calendar/:id", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/calendar/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
       
@@ -519,12 +476,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Event not found" });
       }
       
-      // Verify the event belongs to the user
-      const userId = (req.user as Express.User).id;
-      if (event.user_id !== userId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-      
       return res.json({ event });
     } catch (error) {
       console.error("Error fetching calendar event:", error);
@@ -532,14 +483,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/calendar", isAuthenticated, zValidator("body", insertCalendarEventSchema), async (req: Request, res: Response) => {
+  app.post("/api/calendar", zValidator("body", insertCalendarEventSchema), async (req: Request, res: Response) => {
     try {
-      // Ensure user_id matches the authenticated user
-      const userId = (req.user as Express.User).id;
+      // Use default user ID
+      const userId = DEFAULT_USER_ID;
       const event = await storage.createCalendarEvent({
         ...req.body,
         user_id: userId
       });
+      
       return res.status(201).json({ event });
     } catch (error) {
       console.error("Error creating calendar event:", error);
@@ -547,7 +499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/calendar/:id", isAuthenticated, async (req: Request, res: Response) => {
+  app.put("/api/calendar/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
       
@@ -555,19 +507,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid event ID" });
       }
       
-      // Check if the event exists and belongs to the user
-      const existingEvent = await storage.getCalendarEventById(id);
-      if (!existingEvent) {
+      const event = await storage.getCalendarEventById(id);
+      
+      if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
       
-      const userId = (req.user as Express.User).id;
-      if (existingEvent.user_id !== userId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-      
-      // Update the event
+      // Update event
       const updatedEvent = await storage.updateCalendarEvent(id, req.body);
+      
       return res.json({ event: updatedEvent });
     } catch (error) {
       console.error("Error updating calendar event:", error);
@@ -575,7 +523,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.delete("/api/calendar/:id", isAuthenticated, async (req: Request, res: Response) => {
+  app.delete("/api/calendar/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
       
@@ -583,58 +531,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid event ID" });
       }
       
-      // Check if the event exists and belongs to the user
-      const existingEvent = await storage.getCalendarEventById(id);
-      if (!existingEvent) {
+      const event = await storage.getCalendarEventById(id);
+      
+      if (!event) {
         return res.status(404).json({ message: "Event not found" });
       }
       
-      const userId = (req.user as Express.User).id;
-      if (existingEvent.user_id !== userId) {
-        return res.status(403).json({ message: "Access denied" });
+      // Delete event
+      const success = await storage.deleteCalendarEvent(id);
+      
+      if (!success) {
+        return res.status(500).json({ message: "Failed to delete calendar event" });
       }
       
-      // Delete the event
-      const success = await storage.deleteCalendarEvent(id);
-      if (success) {
-        return res.status(200).json({ message: "Event deleted successfully" });
-      } else {
-        return res.status(500).json({ message: "Failed to delete event" });
-      }
+      return res.json({ success: true });
     } catch (error) {
       console.error("Error deleting calendar event:", error);
       return res.status(500).json({ message: "Failed to delete calendar event" });
     }
   });
   
-  // Task Routes
-  app.get("/api/tasks", isAuthenticated, async (req: Request, res: Response) => {
+  // Task routes
+  app.get("/api/tasks", async (req: Request, res: Response) => {
     try {
-      const userId = (req.user as Express.User).id;
+      // Use default user ID
+      const userId = DEFAULT_USER_ID;
       
-      // Handle different filter options
-      const filter = req.query.filter as string;
-      
-      if (filter === "pending") {
+      // Handle status filter
+      const status = req.query.status as string;
+      if (status === "pending") {
         const tasks = await storage.getPendingTasksForUser(userId);
         return res.json({ tasks });
-      } else if (filter === "completed") {
+      } else if (status === "completed") {
         const tasks = await storage.getCompletedTasksForUser(userId);
         return res.json({ tasks });
-      } else if (req.query.start && req.query.end) {
-        // Filter by due date range
+      }
+      
+      // Handle date range filter
+      if (req.query.start && req.query.end) {
         const startDate = new Date(req.query.start as string);
         const endDate = new Date(req.query.end as string);
         
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-          return res.status(400).json({ message: "Invalid date range parameters" });
+          return res.status(400).json({ message: "Invalid date range" });
         }
         
         const tasks = await storage.getTasksByDueDate(userId, startDate, endDate);
         return res.json({ tasks });
       }
       
-      // No filters, return all tasks
+      // No filter, return all tasks
       const tasks = await storage.getTasksForUser(userId);
       return res.json({ tasks });
     } catch (error) {
@@ -643,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/tasks/:id", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/tasks/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
       
@@ -657,12 +603,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Task not found" });
       }
       
-      // Verify the task belongs to the user
-      const userId = (req.user as Express.User).id;
-      if (task.user_id !== userId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-      
       return res.json({ task });
     } catch (error) {
       console.error("Error fetching task:", error);
@@ -670,14 +610,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/tasks", isAuthenticated, zValidator("body", insertTaskSchema), async (req: Request, res: Response) => {
+  app.post("/api/tasks", zValidator("body", insertTaskSchema), async (req: Request, res: Response) => {
     try {
-      // Ensure user_id matches the authenticated user
-      const userId = (req.user as Express.User).id;
+      // Use default user ID
+      const userId = DEFAULT_USER_ID;
       const task = await storage.createTask({
         ...req.body,
         user_id: userId
       });
+      
       return res.status(201).json({ task });
     } catch (error) {
       console.error("Error creating task:", error);
@@ -685,7 +626,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/tasks/:id", isAuthenticated, async (req: Request, res: Response) => {
+  app.put("/api/tasks/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
       
@@ -693,19 +634,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid task ID" });
       }
       
-      // Check if the task exists and belongs to the user
-      const existingTask = await storage.getTaskById(id);
-      if (!existingTask) {
+      const task = await storage.getTaskById(id);
+      
+      if (!task) {
         return res.status(404).json({ message: "Task not found" });
       }
       
-      const userId = (req.user as Express.User).id;
-      if (existingTask.user_id !== userId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-      
-      // Update the task
+      // Update task
       const updatedTask = await storage.updateTask(id, req.body);
+      
       return res.json({ task: updatedTask });
     } catch (error) {
       console.error("Error updating task:", error);
@@ -713,7 +650,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.post("/api/tasks/:id/complete", isAuthenticated, async (req: Request, res: Response) => {
+  app.post("/api/tasks/:id/complete", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
       
@@ -721,19 +658,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid task ID" });
       }
       
-      // Check if the task exists and belongs to the user
-      const existingTask = await storage.getTaskById(id);
-      if (!existingTask) {
+      const task = await storage.getTaskById(id);
+      
+      if (!task) {
         return res.status(404).json({ message: "Task not found" });
       }
       
-      const userId = (req.user as Express.User).id;
-      if (existingTask.user_id !== userId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-      
-      // Mark the task as completed
+      // Complete task
       const completedTask = await storage.completeTask(id);
+      
       return res.json({ task: completedTask });
     } catch (error) {
       console.error("Error completing task:", error);
@@ -741,7 +674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.delete("/api/tasks/:id", isAuthenticated, async (req: Request, res: Response) => {
+  app.delete("/api/tasks/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id, 10);
       
@@ -749,53 +682,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid task ID" });
       }
       
-      // Check if the task exists and belongs to the user
-      const existingTask = await storage.getTaskById(id);
-      if (!existingTask) {
+      const task = await storage.getTaskById(id);
+      
+      if (!task) {
         return res.status(404).json({ message: "Task not found" });
       }
       
-      const userId = (req.user as Express.User).id;
-      if (existingTask.user_id !== userId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-      
-      // Delete the task
+      // Delete task
       const success = await storage.deleteTask(id);
-      if (success) {
-        return res.status(200).json({ message: "Task deleted successfully" });
-      } else {
+      
+      if (!success) {
         return res.status(500).json({ message: "Failed to delete task" });
       }
+      
+      return res.json({ success: true });
     } catch (error) {
       console.error("Error deleting task:", error);
       return res.status(500).json({ message: "Failed to delete task" });
     }
   });
-
-  // Create a catch-all API route handler for unmatched API routes
+  
+  // Catch all API routes that don't exist
   app.all('/api/*', (req: Request, res: Response) => {
-    res.status(404).json({ message: `API endpoint not found: ${req.path}` });
+    return res.status(404).json({ message: "API endpoint not found" });
   });
 
   return httpServer;
-}
-
-// Middleware for Zod validation
-function zValidator(type: "body" | "query" | "params", schema: z.ZodType<any, any>) {
-  return (req: Request, res: Response, next: Function) => {
-    try {
-      const result = schema.parse(req[type]);
-      req[type] = result;
-      next();
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({
-          message: "Validation error",
-          errors: error.errors
-        });
-      }
-      next(error);
-    }
-  };
 }
