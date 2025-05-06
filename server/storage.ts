@@ -73,8 +73,8 @@ export interface IStorage {
   searchContacts(userId: number, query: string): Promise<Contact[]>;
   getContactsWithMentionCount(userId: number): Promise<ContactWithMentionCount[]>;
   
-  // Session store
-  sessionStore: session.Store;
+  // Session store (optional since we removed auth)
+  sessionStore?: session.Store;
 }
 
 export class DatabaseStorage implements IStorage {

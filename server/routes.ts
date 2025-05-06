@@ -420,7 +420,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get contact details for each ID
       const contacts = [];
-      for (const contactId of contactIds) {
+      // Convert Set to Array for iteration
+      const contactIdArray = Array.from(contactIds);
+      for (const contactId of contactIdArray) {
         const contact = await storage.getContactById(contactId);
         if (contact) {
           contacts.push(contact);
