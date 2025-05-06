@@ -13,9 +13,14 @@ declare global {
 }
 
 // Initialize Supabase client for server-side operations
-// Remove the VITE_ prefix for server-side as it's causing issues
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
+// Handling server-side variables
+let supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+let supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+
+// Make sure the URL is properly formatted
+if (supabaseUrl && !supabaseUrl.startsWith('https://')) {
+  supabaseUrl = `https://${supabaseUrl}`;
+}
 
 console.log('[Server] Initializing Supabase with URL:', supabaseUrl ? 'Found' : 'Missing');
 console.log('[Server] Supabase key:', supabaseKey ? 'Found' : 'Missing');
@@ -24,10 +29,15 @@ if (!supabaseUrl || !supabaseKey) {
   console.warn('[Server] Missing Supabase credentials. Authentication will fall back to default user.');
 }
 
-// Only create the client if we have valid credentials
-const supabase = (supabaseUrl && supabaseKey) 
-  ? createClient(supabaseUrl, supabaseKey)
-  : null;
+// Initialize client or set to null if credentials are missing/invalid
+let supabase = null;
+if (supabaseUrl && supabaseKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey);
+  } catch (error) {
+    console.error('[Server] Failed to initialize Supabase client:', error);
+  }
+}
 
 // Default user to fall back to
 const defaultUser: User = {
