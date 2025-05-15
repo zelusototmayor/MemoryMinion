@@ -23,6 +23,28 @@ const envUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const envKey =
   process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
+// Detailed debugging for server environment variables
+console.log('🔍 [Server] Environment Check:');
+console.log('[Server] SUPABASE_URL exists:', !!process.env.SUPABASE_URL);
+console.log('[Server] VITE_SUPABASE_URL exists:', !!process.env.VITE_SUPABASE_URL);
+console.log('[Server] Using URL from:', process.env.SUPABASE_URL ? 'SUPABASE_URL' : (process.env.VITE_SUPABASE_URL ? 'VITE_SUPABASE_URL' : 'fallback'));
+
+console.log('[Server] SUPABASE_ANON_KEY exists:', !!process.env.SUPABASE_ANON_KEY);
+console.log('[Server] VITE_SUPABASE_ANON_KEY exists:', !!process.env.VITE_SUPABASE_ANON_KEY);
+console.log('[Server] Using key from:', process.env.SUPABASE_ANON_KEY ? 'SUPABASE_ANON_KEY' : (process.env.VITE_SUPABASE_ANON_KEY ? 'VITE_SUPABASE_ANON_KEY' : 'fallback'));
+
+if (envKey) {
+  console.log('[Server] Supabase key starts with:', envKey.substring(0, 5));
+  console.log('[Server] Supabase key length:', envKey.length);
+  
+  // Check if key has VITE_ or SUPABASE_ prefix (which would be wrong)
+  if (envKey.includes('VITE_') || envKey.includes('SUPABASE_')) {
+    console.warn('⚠️ [Server] Warning: Key contains environment variable name as prefix!');
+  }
+} else {
+  console.warn('⚠️ [Server] Warning: No environment key found, using fallback');
+}
+
 // Use environment variables or fallbacks
 let supabaseUrl = envUrl || fallbackUrl;
 let supabaseKey = envKey || fallbackKey;
