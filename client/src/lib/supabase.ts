@@ -9,6 +9,18 @@ const fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const envUrl = import.meta.env.VITE_SUPABASE_URL;
 const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Detailed debugging for environment variables
+console.log('🔍 Client Environment Check:');
+console.log('VITE_SUPABASE_URL exists:', !!envUrl);
+console.log('VITE_SUPABASE_ANON_KEY exists:', !!envKey);
+
+if (envKey) {
+  console.log('VITE_SUPABASE_ANON_KEY starts with:', envKey.substring(0, 5));
+  console.log('VITE_SUPABASE_ANON_KEY length:', envKey.length);
+} else {
+  console.log('⚠️ Warning: VITE_SUPABASE_ANON_KEY is missing');
+}
+
 // Use the environment variables if they exist, otherwise use the fallbacks
 let supabaseUrl = envUrl || fallbackUrl;
 let supabaseKey = envKey || fallbackKey;
@@ -29,6 +41,8 @@ if (supabaseUrl.includes('https://https://')) {
 }
 
 console.log('Using Supabase URL:', supabaseUrl);
+console.log('Using fallback URL?', supabaseUrl === fallbackUrl);
+console.log('Using fallback key?', supabaseKey === fallbackKey);
 
 // Create the Supabase client
 export const supabase = createClient(supabaseUrl, supabaseKey);

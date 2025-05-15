@@ -1,0 +1,96 @@
+✅ Step-by-Step Troubleshooting for Supabase + Replit
+🔍 1. Confirm Environment Variables Are Loaded
+In Replit:
+
+Go to Secrets (Environment Variables) tab (🔒 icon or in sidebar)
+
+Confirm you have exactly:
+
+ini
+Copy
+Edit
+SUPABASE_URL=https://<your-project>.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+Make sure:
+
+No extra spaces, quotes, or line breaks.
+
+Replit saves these immediately — but still restart the server after editing.
+
+🧠 2. Use process.env Correctly in Replit
+In your code, access them like:
+
+js
+Copy
+Edit
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.SUPABASE_URL
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+Common mistake: Replit’s default environment doesn't auto-inject variables into frontend code — more on that below 👇
+
+⚠️ 3. Are You Using Replit for a Fullstack App?
+If you’re using a frontend (React/Vite/etc.) inside Replit, environment variables from process.env don’t work in the browser by default.
+
+So either:
+
+✅ Manually inject them at build time (e.g. using Vite’s import.meta.env)
+
+OR (simpler for dev) — temporarily hardcode the URL and API key in your Supabase init file just to confirm it works:
+
+js
+Copy
+Edit
+export const supabase = createClient(
+  'https://your-project.supabase.co',
+  'your-anon-key'
+)
+Then confirm login works.
+
+If this works, then the issue is 100% environment variable exposure in Replit’s frontend.
+
+🔄 4. Restart Your Replit Web Server
+Changes in secrets or environment vars won’t apply until you:
+
+🔁 Restart your web server (via the "Run" button or kill/restart manually).
+
+🧪 5. Test with Curl or Postman
+Just to rule out Supabase itself, you can test your key from outside:
+
+bash
+Copy
+Edit
+curl -X POST 'https://<your-project>.supabase.co/auth/v1/token' \
+  -H "apikey: your-anon-key" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "someone@example.com", "password": "pass123", "grant_type": "password"}'
+If this returns a 200, the key is valid and the issue is inside Replit.
+
+🔐 6. Check for .env Exposure Issues
+If you're using something like Vite or React in Replit:
+
+Prefix env vars with VITE_ to expose them to the frontend:
+
+env
+Copy
+Edit
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+And then use:
+
+js
+Copy
+Edit
+const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY)
+✅ Final Sanity Checklist
+ Keys copied exactly from Supabase → Settings → API
+
+ No quotes or whitespace in .env or Secrets tab
+
+ Restarted Replit server after change
+
+ If frontend: exposing keys properly via import.meta.env or hardcoded
+
+ No typos in project URL (https://...supabase.co)
