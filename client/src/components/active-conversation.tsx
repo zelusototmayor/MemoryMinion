@@ -145,6 +145,45 @@ export function ActiveConversation() {
       return apiRequest("POST", "/api/contact-links", link).then((res) => res.json());
     }
   });
+  
+  // Title generation mutation
+  const generateTitleMutation = useMutation({
+    mutationFn: async () => {
+      if (!data?.messages || data.messages.length === 0) {
+        throw new Error("No messages available to generate title");
+      }
+      
+      const response = await apiRequest("POST", "/api/generate-title", {
+        messages: data.messages.map(m => ({
+          sender: m.sender,
+          content: m.content
+        }))
+      });
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.title && conversationId) {
+        // Update the conversation title
+        updateConversationTitleMutation.mutate({
+          id: conversationId,
+          title: data.title
+        });
+      }
+    }
+  });
+  
+  // Mutation to update conversation title
+  const updateConversationTitleMutation = useMutation({
+    mutationFn: async ({ id, title }: { id: number; title: string }) => {
+      return apiRequest("PUT", `/api/conversations/${id}`, { title }).then(res => res.json());
+    },
+    onSuccess: () => {
+      // Refresh the conversation data
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations", conversationId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+    }
+  });
 
   // Handle audio transcription
   const transcribeAudio = async () => {
@@ -369,13 +408,20 @@ export function ActiveConversation() {
           <button 
             className="h-8 w-8 sm:h-9 sm:w-auto sm:px-3 rounded-full flex items-center justify-center bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
             title="Generate Title"
-            onClick={() => {
-              // This would call a mutation to generate a title
-              // We'll implement this feature later
-            }}
+            onClick={() => generateConversationTitle()}
+            disabled={generateTitleMutation.isPending}
           >
-            <span className="material-icons text-sm">edit</span>
-            <span className="hidden sm:inline ml-1">Rename</span>
+            {generateTitleMutation.isPending ? (
+              <>
+                <span className="material-icons animate-spin text-sm">refresh</span>
+                <span className="hidden sm:inline ml-1">Generating...</span>
+              </>
+            ) : (
+              <>
+                <span className="material-icons text-sm">edit</span>
+                <span className="hidden sm:inline ml-1">Rename</span>
+              </>
+            )}
           </button>
         </div>
       </header>
