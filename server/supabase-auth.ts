@@ -145,15 +145,15 @@ export const verifyToken = async (
       // Attach user to request
       req.user = dbUser;
     } else {
-      // Fallback to default user
-      req.user = defaultUser;
+      // No fallback - require real authenticated user
+      req.user = undefined;
     }
 
     next();
   } catch (error) {
     console.error("Auth middleware error:", error);
-    // Fallback to default user
-    req.user = defaultUser;
+    // No fallback - require real authenticated user
+    req.user = undefined;
     next();
   }
 };

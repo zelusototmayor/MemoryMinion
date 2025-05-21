@@ -579,8 +579,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/calendar", zValidator("body", insertCalendarEventSchema), async (req: Request, res: Response) => {
     try {
-      // Use default user ID
-      const userId = DEFAULT_USER_ID;
+      // Require authentication
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const userId = getUserId(req);
       const event = await storage.createCalendarEvent({
         ...req.body,
         user_id: userId
@@ -648,8 +652,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Task routes
   app.get("/api/tasks", async (req: Request, res: Response) => {
     try {
-      // Use default user ID
-      const userId = DEFAULT_USER_ID;
+      // Require authentication
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const userId = getUserId(req);
       
       // Handle status filter
       const status = req.query.status as string;
@@ -706,8 +714,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/tasks", zValidator("body", insertTaskSchema), async (req: Request, res: Response) => {
     try {
-      // Use default user ID
-      const userId = DEFAULT_USER_ID;
+      // Require authentication
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const userId = getUserId(req);
       const task = await storage.createTask({
         ...req.body,
         user_id: userId
