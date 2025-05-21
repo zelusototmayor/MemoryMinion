@@ -293,7 +293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ contacts });
     } catch (error) {
       console.error("Error fetching contacts:", error);
-      if (error.message === "Authentication required") {
+      if (error instanceof Error && error.message === "Authentication required") {
         return res.status(401).json({ message: "Authentication required" });
       }
       return res.status(500).json({ message: "Failed to fetch contacts" });
@@ -315,7 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(201).json({ contact });
     } catch (error) {
       console.error("Error creating contact:", error);
-      if (error.message === "Authentication required") {
+      if (error instanceof Error && error.message === "Authentication required") {
         return res.status(401).json({ message: "Authentication required" });
       }
       return res.status(500).json({ message: "Failed to create contact" });
@@ -337,6 +337,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({ contacts });
     } catch (error) {
       console.error("Error fetching frequent contacts:", error);
+      if (error instanceof Error && error.message === "Authentication required") {
+        return res.status(401).json({ message: "Authentication required" });
+      }
       return res.status(500).json({ message: "Failed to fetch frequent contacts" });
     }
   });
@@ -524,8 +527,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Calendar routes
   app.get("/api/calendar", async (req: Request, res: Response) => {
     try {
-      // Use default user ID
-      const userId = DEFAULT_USER_ID;
+      // Require authentication
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const userId = getUserId(req);
       
       // Handle date range filter
       if (req.query.start && req.query.end) {
