@@ -34,10 +34,10 @@ function Router() {
 
 function App() {
   return (
-    <>
+    <SupabaseAuthProvider>
       <Router />
       <Toaster />
-    </>
+    </SupabaseAuthProvider>
   );
 }
 

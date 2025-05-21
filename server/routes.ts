@@ -173,6 +173,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Update a conversation
+  app.put("/api/conversations/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid conversation ID" });
+      }
+      
+      const conversation = await storage.getConversationById(id);
+      
+      if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found" });
+      }
+      
+      // Update the conversation
+      const updatedConversation = await storage.updateConversation(id, req.body);
+      
+      return res.json({ conversation: updatedConversation });
+    } catch (error) {
+      console.error("Error updating conversation:", error);
+      return res.status(500).json({ message: "Failed to update conversation" });
+    }
+  });
+  
   // Message routes
   app.post("/api/messages", zValidator("body", insertMessageSchema), async (req: Request, res: Response) => {
     try {
