@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Route, useLocation } from 'wouter';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/hooks/use-auth';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -9,8 +9,9 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ path, component: Component }: ProtectedRouteProps) {
-  const { isLoggedIn, isLoading } = useSupabaseAuth();
+  const { user, isLoading } = useAuth();
   const [, setLocation] = useLocation();
+  const isLoggedIn = !!user;
 
   useEffect(() => {
     if (!isLoading && !isLoggedIn) {

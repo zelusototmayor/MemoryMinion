@@ -3,10 +3,11 @@ import { useLocation } from 'wouter';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/lib/supabase';
-import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function AuthPage() {
-  const { isLoggedIn } = useSupabaseAuth();
+  const { user, isLoading } = useAuth();
+  const isLoggedIn = !!user;
   const [, setLocation] = useLocation();
   
   // Redirect to home if already logged in

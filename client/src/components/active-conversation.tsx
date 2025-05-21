@@ -408,7 +408,7 @@ export function ActiveConversation() {
           <button 
             className="h-8 w-8 sm:h-9 sm:w-auto sm:px-3 rounded-full flex items-center justify-center bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
             title="Generate Title"
-            onClick={() => generateConversationTitle()}
+            onClick={() => generateTitleMutation.mutate()}
             disabled={generateTitleMutation.isPending}
           >
             {generateTitleMutation.isPending ? (
