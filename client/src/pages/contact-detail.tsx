@@ -7,9 +7,9 @@ import { formatDistanceToNow } from "date-fns";
 import { Contact, Message } from "@shared/schema";
 
 export default function ContactDetailPage() {
-  const [match] = useRoute<{ id: string }>("/contact/:id");
+  const [match, params] = useRoute<{ id: string }>("/contact/:id");
   const [, navigate] = useLocation();
-  const contactId = match ? parseInt(match.params.id) : null;
+  const contactId = match && params ? parseInt(params.id) : null;
 
   const { data, isLoading, isError } = useQuery<{
     contact: Contact;
