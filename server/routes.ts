@@ -365,6 +365,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Verify contact belongs to current user
       const userId = getUserId(req);
+      console.log(`Contact detail request - Contact ID: ${id}, User ID: ${userId}, Contact user_id: ${contact.user_id}`);
       if (contact.user_id !== userId) {
         return res.status(403).json({ message: "You don't have permission to view this contact" });
       }
