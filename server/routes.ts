@@ -343,6 +343,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get("/api/contacts/:id", async (req: Request, res: Response) => {
     try {
+      // Require authentication
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const id = parseInt(req.params.id, 10);
       
       if (isNaN(id)) {
@@ -355,7 +360,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Contact not found" });
       }
       
-      // No need to check user ID - we're using a default user
+      // Verify contact belongs to current user
+      const userId = getUserId(req);
+      if (contact.user_id !== userId) {
+        return res.status(403).json({ message: "You don't have permission to view this contact" });
+      }
+      
       const contactLinks = await storage.getContactLinksForContact(id);
       
       // Get messages associated with this contact
@@ -365,7 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const messageId of messageIds) {
         // For each message ID, find messages in all conversations
         // This approach might need optimization in a production app
-        const conversations = await storage.getConversationsForUser(DEFAULT_USER_ID);
+        const conversations = await storage.getConversationsForUser(userId);
         
         for (const conversation of conversations) {
           const conversationMessages = await storage.getMessagesForConversation(conversation.id);
@@ -388,12 +398,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Contact link routes
   app.post("/api/contact-links", zValidator("body", insertContactLinkSchema), async (req: Request, res: Response) => {
     try {
+      // Require authentication
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const contactLink = await storage.createContactLink(req.body);
       
       // Verify that the contact exists
       const contact = await storage.getContactById(req.body.contact_id);
       if (!contact) {
         return res.status(404).json({ message: "Contact not found" });
+      }
+      
+      // Verify the contact belongs to the current user
+      const userId = getUserId(req);
+      if (contact.user_id !== userId) {
+        return res.status(403).json({ message: "You don't have permission to link this contact" });
       }
       
       return res.status(201).json({ contactLink });
@@ -406,13 +427,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Search routes
   app.get("/api/search", async (req: Request, res: Response) => {
     try {
+      // Require authentication
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
       const query = req.query.q as string;
       if (!query) {
         return res.status(400).json({ message: "Search query is required" });
       }
       
-      // Use default user ID
-      const userId = DEFAULT_USER_ID;
+      const userId = getUserId(req);
       
       // Search in conversations and contacts
       const [conversations, contacts] = await Promise.all([
