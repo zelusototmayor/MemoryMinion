@@ -102,8 +102,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Conversation routes
   app.get("/api/conversations", async (req: Request, res: Response) => {
     try {
-      // Use default user ID
-      const userId = DEFAULT_USER_ID;
+      // Require authentication
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const userId = getUserId(req);
       
       // Get conversations
       const conversations = await storage.getConversationsForUser(userId);
@@ -136,8 +140,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/conversations", zValidator("body", insertConversationSchema), async (req: Request, res: Response) => {
     try {
-      // Use default user ID
-      const userId = DEFAULT_USER_ID;
+      // Require authentication
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const userId = getUserId(req);
       const conversation = await storage.createConversation({
         ...req.body,
         user_id: userId
@@ -275,20 +283,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Contact routes
   app.get("/api/contacts", async (req: Request, res: Response) => {
     try {
-      // Use default user ID
-      const userId = DEFAULT_USER_ID;
+      // Require authentication
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const userId = getUserId(req);
       const contacts = await storage.getContactsWithMentionCount(userId);
       return res.json({ contacts });
     } catch (error) {
       console.error("Error fetching contacts:", error);
+      if (error.message === "Authentication required") {
+        return res.status(401).json({ message: "Authentication required" });
+      }
       return res.status(500).json({ message: "Failed to fetch contacts" });
     }
   });
   
   app.post("/api/contacts", zValidator("body", insertContactSchema), async (req: Request, res: Response) => {
     try {
-      // Use default user ID
-      const userId = DEFAULT_USER_ID;
+      // Require authentication
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const userId = getUserId(req);
       const contact = await storage.createContact({
         ...req.body,
         user_id: userId
@@ -296,6 +315,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(201).json({ contact });
     } catch (error) {
       console.error("Error creating contact:", error);
+      if (error.message === "Authentication required") {
+        return res.status(401).json({ message: "Authentication required" });
+      }
       return res.status(500).json({ message: "Failed to create contact" });
     }
   });
@@ -303,8 +325,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Important: /frequent must come BEFORE /:id to avoid route conflicts
   app.get("/api/contacts/frequent", async (req: Request, res: Response) => {
     try {
-      // Use default user ID
-      const userId = DEFAULT_USER_ID;
+      // Require authentication
+      if (!req.user) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      const userId = getUserId(req);
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 4;
       
       const contacts = await storage.getFrequentContactsForUser(userId, limit);
