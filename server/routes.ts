@@ -23,12 +23,12 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
 });
 
-// Default user ID as fallback for requests when no auth is present
-const DEFAULT_USER_ID = 1;
-
-// Get user ID from request (uses Supabase auth if available, otherwise default)
+// Get user ID from request - requires authentication
 function getUserId(req: Request): number {
-  return req.user?.id || DEFAULT_USER_ID;
+  if (!req.user?.id) {
+    throw new Error("Authentication required");
+  }
+  return req.user.id;
 }
 
 // Validator function for request bodies
