@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useAuthQuery } from "@/hooks/use-auth-query";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Header() {
@@ -10,8 +10,8 @@ export default function Header() {
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
   
-  // Get auth context values
-  const { user, logout, isLoggedIn } = useAuthQuery();
+  // Get auth context values from our new adapter
+  const { user, logoutMutation } = useAuth();
   
   // Handle logout with proper error handling
   const handleLogout = async () => {
@@ -20,9 +20,13 @@ export default function Header() {
     console.log("Attempting to logout...");
     setIsLoggingOut(true);
     try {
-      await logout();
-      // Redirect happens in the logout function
-      console.log("Logout successful");
+      await logoutMutation.mutateAsync();
+      toast({
+        title: "Logout successful",
+        description: "You have been logged out successfully"
+      });
+      // Redirect to login page
+      setLocation('/auth');
     } catch (error) {
       console.error("Logout error:", error);
       toast({
